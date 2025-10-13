@@ -1,0 +1,9 @@
+[submodule "Midi"]
+	path = Midi
+	url = git@github.com:domportera/midi.net
+[submodule "AppWindows.Silk.NET"]
+	path = AppWindows.Silk.NET
+	url = git@github.com:domportera/AppWindows.Silk.NET
+[submodule "ImGuiWindows.Silk.NET"]
+	path = ImGuiWindows.Silk.NET
+	url = git@github.com:domportera/ImGuiWindows.Silk.NET

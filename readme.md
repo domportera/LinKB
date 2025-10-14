@@ -1,8 +1,16 @@
 
 ### To-do
 - add special color for "home" keys - F and J
-- include a default configuration in the build
+- add special color for number & symbol keys
+- include two default configurations in the build - "normal", "normal-split" and my preferred split layout
+- usage instructions
+- installer
 
 ### Known issues
 - holding down two pads that refer to the same key can lead to an early release when both are held and only one is released
 - mod keys are repeated when they probably shouldnt be 
+- linnstrument's center-third LED color is inconsistent in from that of the edges
+- on linux, windowing throws an exception on my machine
+- input hooks have not yet been tested on linux
+- reassigning pads via key press sometimes makes the pad look "pressed" until touched again
+

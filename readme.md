@@ -13,4 +13,10 @@
 - on linux, windowing throws an exception on my machine
 - input hooks have not yet been tested on linux
 - reassigning pads via key press sometimes makes the pad look "pressed" until touched again
+- stepping "down" layers does not clear their LED state if there is no key assigned to lower layers 
 
+## Nice to have
+- Read caps/scroll/num-locks' states from the OS and update the LEDs accordingly 
+- Support the Linnstrument-128
+
+    

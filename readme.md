@@ -3,6 +3,9 @@
 - include two default configurations in the build - "normal", "normal-split" and my preferred split layout
 - usage instructions
 - installer
+- toggle between keyboard mode and instrument mode wiith a key combination:
+    - 3 corners to switch to keboard mode, 3 corners to switch back? or...
+- more readable gui keys
 
 ### Known issues
 - holding down two pads that refer to the same key can lead to an early release when both are held and only one is released
@@ -18,5 +21,6 @@
 - Support the Linnstrument-128
 - support custom "home" key designation for lighting
 - custom color scheme
+- linnstrument as a trackpad
 
     

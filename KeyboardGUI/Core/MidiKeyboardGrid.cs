@@ -45,30 +45,40 @@ internal class MidiKeyboardGrid : IDisposable
             _ledHandler = new LEDHandler(ledGrid, (x, y) =>
             {
                 var keycode = _config.GetKey(x, y, Layer, out _);
-                if (keycode == KeyCode.VcUndefined)
+                if (keycode is KeyCode.VcUndefined)
                 {
-                    return _config.Colors.UnlitColor;
+                    return KeyColors.UnlitColor;
                 }
+
 
                 var keyInt = (int)keycode;
                 var isPressed = _keyPressedTimes[keyInt] != NotPressedTime;
                 if (isPressed)
                 {
-                    return _config.Colors.PressedColor;
+                    return KeyColors.PressedColor;
                 }
 
                 if (keycode >= KeyExtensions.ModifierKeyMin)
-                    return _config.Colors.ModKeyColor;
+                    return KeyColors.ModKeyColor;
+                
+                if (keycode is KeyCode.VcF or KeyCode.VcJ)
+                {
+                    return KeyColors.HomeKeyColor;
+                }
 
-                var isLockKey = keycode is KeyCode.VcCapsLock or KeyCode.VcNumLock or KeyCode.VcScrollLock;
-                if (isLockKey)
+                if (keycode is KeyCode.VcCapsLock or KeyCode.VcNumLock or KeyCode.VcScrollLock)
                 {
                     // todo - get actual lock status and color accordingly
-                    return _config.Colors.LockedColor;
+                    return KeyColors.LockedColor;
                 }
 
                 var isNormal = keycode.IsNormal();
-                return isNormal ? _config.Colors.LitColor : _config.Colors.SpecialLitColor;
+                if (!isNormal)
+                {
+                    return KeyColors.SpecialLitColor;
+                }
+                
+                return keycode.IsNumberOrSymbol() ? KeyColors.NumberSymbolColor : KeyColors.LitColor;
             });
 
             _ledHandler.UpdateAndPushAll(_config.Width, _config.Height);

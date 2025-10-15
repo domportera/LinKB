@@ -1,7 +1,5 @@
 
 ### To-do
-- add special color for "home" keys - F and J
-- add special color for number & symbol keys
 - include two default configurations in the build - "normal", "normal-split" and my preferred split layout
 - usage instructions
 - installer
@@ -14,9 +12,12 @@
 - input hooks have not yet been tested on linux
 - reassigning pads via key press sometimes makes the pad look "pressed" until touched again
 - stepping "down" layers does not clear their LED state if there is no key assigned to lower layers 
+- devices can fail to open due to arcane WindowsMM issues? the reliable solve seems to be unplug-and-replug, but there must be a better way. like something (this app) is holding onto the reference in unmanaged land...
 
 ## Nice to have
 - Read caps/scroll/num-locks' states from the OS and update the LEDs accordingly 
 - Support the Linnstrument-128
+- support custom "home" key designation for lighting
+- custom color scheme
 
     

@@ -80,10 +80,21 @@ internal static class KeyExtensions
     {
         return (int)keycode <= 124 // VcJpComma  
                && keycode is > KeyCode.VcDown and <= KeyCode.VcNumPadDivide or KeyCode.VcNumPadEquals
-                   or KeyCode.VcEscape
+                   or KeyCode.VcEscape or KeyCode.VcQuote
 
                // exclude WASD for gaming/production use cases
                && keycode is not KeyCode.VcW and not KeyCode.VcA and not KeyCode.VcS and not KeyCode.VcD;
+    }
+
+    public static bool IsNumberOrSymbol(this KeyCode keycode)
+    {
+        return keycode is >= KeyCode.Vc0 and <= KeyCode.Vc9 or >= KeyCode.VcNumPad0 and <= KeyCode.VcNumPad9
+            or KeyCode.VcEquals or KeyCode.VcNumPadEquals or KeyCode.VcMinus or KeyCode.VcNumPadMultiply
+            or KeyCode.VcNumPadDivide or KeyCode.VcNumPadSubtract or KeyCode.VcNumPadSeparator or KeyCode.VcSlash
+            or KeyCode.VcBackslash
+            or KeyCode.VcBackQuote or KeyCode.VcJpComma or KeyCode.VcComma or KeyCode.VcPeriod
+            or KeyCode.VcNumPadDecimal
+            or KeyCode.VcSemicolon;
     }
 
     public const KeyCode Mod1 = (KeyCode)ushort.MaxValue - (int)Layer.Layer2 + 1;

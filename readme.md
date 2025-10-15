@@ -5,7 +5,7 @@
 - installer
 - toggle between keyboard mode and instrument mode wiith a key combination:
     - 3 corners to switch to keboard mode, 3 corners to switch back? or...
-- more readable gui keys
+- runtime device reconnection and disconnection prompts
 
 ### Known issues
 - holding down two pads that refer to the same key can lead to an early release when both are held and only one is released
@@ -14,7 +14,7 @@
 - on linux, windowing throws an exception on my machine
 - input hooks have not yet been tested on linux
 - reassigning pads via key press sometimes makes the pad look "pressed" until touched again
-- devices can fail to open due to arcane WindowsMM issues? the reliable solve seems to be unplug-and-replug, but there must be a better way. like something (this app) is holding onto the reference in unmanaged land...
+- the app sometimes doesn't fully quit, which can interfere with device connection
 
 ## Nice to have
 - Read caps/scroll/num-locks' states from the OS and update the LEDs accordingly 

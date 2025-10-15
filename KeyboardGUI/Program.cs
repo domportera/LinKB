@@ -48,10 +48,14 @@ internal static class Program
         var hooks = CreateHooks(out var hookTask, out var delay, out var rate);
         grid.ApplyAutoRepeatSettings(delay, rate);
         await GuiApplication.Run(grid, hooks);
+        Log.Info("Gui application exited, stopping hooks");
         await StopHooks(hooks, hookTask);
+        Log.Info("Input hooks stopped");
         grid.Dispose();
+        Log.Debug("Keyboard grid disposed");
 
         _ = await TryCloseLinnstrument(gridDevice!);
+        Log.Info("Linnstrument closed");
 
         return (int)ExitCodes.Success;
     }

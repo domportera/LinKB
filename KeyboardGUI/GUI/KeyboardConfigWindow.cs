@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using ImGuiNET;
 using ImGuiWindows;
 using KeyboardGUI.Configuration;
@@ -13,7 +14,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
 {
     private readonly MidiKeyboardGrid _keyboardGrid;
     private readonly GlobalHookBase _hooks;
-    private readonly Dictionary<KeyCode, bool> _depressedKeys = [];
+    private readonly Dictionary<KeyCode, bool> _pressedKeys = [];
     private readonly Lock _keyLock = new();
 
     public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, GlobalHookBase hooks)
@@ -28,7 +29,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
     {
         lock (_keyLock)
         {
-            _depressedKeys[e.Data.KeyCode] = false;
+            _pressedKeys[e.Data.KeyCode] = false;
         }
     }
 
@@ -36,7 +37,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
     {
         lock (_keyLock)
         {
-            _depressedKeys[e.Data.KeyCode] = true;
+            _pressedKeys[e.Data.KeyCode] = true;
         }
     }
 
@@ -50,35 +51,117 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var config = _keyboardGrid.Config;
         var kbWidth = config.Width;
         var kbHeight = config.Height;
+        var consumedKey = false;
 
         // render as a table
-        ImGui.PushFont(fonts.Large);
-        ImGui.Text("Keyboard Configuration Table");
-        ImGui.PopFont();
-
         DrawFileMenu(config);
 
-        ImGui.Text($"Grid Size: {kbWidth} x {kbHeight}");
+        SameLineSeparator();
 
         if (ImGui.Checkbox("Enable key events", ref _keyboardGrid.EnableKeyEvents))
         {
             // clear depressed keys when toggling
             lock (_keyLock)
             {
-                _depressedKeys.Clear();
+                _pressedKeys.Clear();
             }
         }
 
-        KeyCode? depressedKey;
-        KeyCode[] depressedKeys;
+        var layer = _keyboardGrid.Layer;
+
+        SameLineSeparator();
+        DrawModKeys(layer);
+
+        // get pressed keys
+        KeyCode? pressedKey;
+        KeyCode[] pressedKeys;
         lock (_keyLock)
         {
-            depressedKeys = _depressedKeys.Where(kv => kv.Value).Select(kv => kv.Key).ToArray();
-            depressedKey = depressedKeys.Length == 1 ? depressedKeys[0] : null;
+            pressedKeys = _pressedKeys.Where(kv => kv.Value).Select(kv => kv.Key).ToArray();
+            pressedKey = pressedKeys.Length == 1 ? pressedKeys[0] : null;
         }
 
+        SameLineSeparator();
+        DrawPressedKeys(pressedKeys);
 
-        // draw a horizontal list of currently depressed keys
+        ImGui.Separator();
+
+        var availableHeight = ImGui.GetContentRegionAvail().Y;
+        var perCellHeight = availableHeight / kbHeight - ImGui.GetStyle().CellPadding.Y * 2;
+
+        const ImGuiTableFlags tableFlags = ImGuiTableFlags.Borders |
+                                           ImGuiTableFlags.RowBg |
+                                           ImGuiTableFlags.Resizable |
+                                           ImGuiTableFlags.SizingStretchSame;
+
+        const ImGuiTableColumnFlags columnFlags = ImGuiTableColumnFlags.WidthStretch |
+                                                  ImGuiTableColumnFlags.NoResize |
+                                                  ImGuiTableColumnFlags.NoReorder |
+                                                  ImGuiTableColumnFlags.NoSort |
+                                                  ImGuiTableColumnFlags.NoHide;
+
+        const ImGuiTableRowFlags rowFlags = ImGuiTableRowFlags.None;
+
+        if (ImGui.BeginTable("KeyboardConfigTable", kbWidth, tableFlags, new Vector2(0, -1)))
+        {
+            const string colBaseLabel = "#col";
+            Span<char> colLabel = stackalloc char[colBaseLabel.Length + 1];
+            colBaseLabel.AsSpan().CopyTo(colLabel);
+            for (int col = 0; col < kbWidth; col++)
+            {
+                colLabel[^1] = *(char*)&col;
+                ImGui.TableSetupColumn(colLabel, columnFlags);
+            }
+
+            int rowCount = 0;
+            for (int row = kbHeight - 1; row >= 0; row--)
+            {
+                rowCount++;
+                ImGui.TableNextRow(rowFlags);
+                for (int col = 0; col < kbWidth; col++)
+                {
+                    ImGui.TableSetColumnIndex(col);
+                    DrawCell(grid: _keyboardGrid,
+                        layer: layer,
+                        size: new Vector2(-1, perCellHeight),
+                        col: col,
+                        row: row,
+                        depressedKey: consumedKey
+                            ? null
+                            : pressedKey,
+                        hasConsumed: out var hasConsumed);
+
+                    consumedKey |= hasConsumed;
+                }
+            }
+
+            ImGui.EndTable();
+        }
+
+        // ImGui.PopStyleVar();
+
+        if (consumedKey)
+        {
+            // if we consumed a key, clear the depressed keys?
+            lock (_keyLock)
+            {
+                _pressedKeys.Clear();
+            }
+        }
+
+        return;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void SameLineSeparator()
+        {
+            ImGui.SameLine();
+            ImGui.Text("\t|\t");
+            ImGui.SameLine();
+        }
+    }
+
+    private static void DrawPressedKeys(KeyCode[] depressedKeys)
+    {
         ImGui.Text("Currently depressed keys:");
         if (depressedKeys.Length > 0)
         {
@@ -94,9 +177,10 @@ internal class KeyboardConfigWindow : IImguiDrawer
             ImGui.SameLine();
             ImGui.Text("None");
         }
+    }
 
-        var layer = _keyboardGrid.Layer;
-
+    private void DrawModKeys(Layer layer)
+    {
         ImGui.Text("Mod keys: ");
         ImGui.SameLine();
         KeyCheckBox(KeyExtensions.Mod1, out var mod1Pressed);
@@ -114,64 +198,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
         if (layer != (Layer)simulatedLayer)
         {
             Log.Warn("(simulated layer does not match current layer)");
-        }
-
-        var consumedKey = false;
-
-        ImGui.Separator();
-        const ImGuiTableFlags tableFlags = ImGuiTableFlags.Borders |
-                                           ImGuiTableFlags.RowBg |
-                                           ImGuiTableFlags.Resizable |
-                                           ImGuiTableFlags.SizingStretchSame;
-
-        const ImGuiTableColumnFlags columnFlags = ImGuiTableColumnFlags.WidthStretch |
-                                                  ImGuiTableColumnFlags.NoResize |
-                                                  ImGuiTableColumnFlags.NoReorder |
-                                                  ImGuiTableColumnFlags.NoSort |
-                                                  ImGuiTableColumnFlags.NoHide;
-
-        const ImGuiTableRowFlags rowFlags = ImGuiTableRowFlags.None;
-
-        if (ImGui.BeginTable("KeyboardConfigTable", kbWidth, tableFlags))
-        {
-            const string colBaseLabel = "#col";
-            Span<char> colLabel = stackalloc char[colBaseLabel.Length + 1];
-            colBaseLabel.AsSpan().CopyTo(colLabel);
-            for (int col = 0; col < kbWidth; col++)
-            {
-                colLabel[^1] = *(char*)&col;
-                ImGui.TableSetupColumn(colLabel, columnFlags);
-            }
-
-            for (int row = kbHeight - 1; row >= 0; row--)
-            {
-                ImGui.TableNextRow(rowFlags);
-                for (int col = 0; col < kbWidth; col++)
-                {
-                    ImGui.TableSetColumnIndex(col);
-                    DrawCell(grid: _keyboardGrid,
-                        layer: layer,
-                        col: col,
-                        row: row,
-                        depressedKey: consumedKey
-                            ? null
-                            : depressedKey,
-                        hasConsumed: out var hasConsumed);
-
-                    consumedKey |= hasConsumed;
-                }
-            }
-
-            ImGui.EndTable();
-        }
-
-        if (consumedKey)
-        {
-            // if we consumed a key, clear the depressed keys?
-            lock (_keyLock)
-            {
-                _depressedKeys.Clear();
-            }
         }
     }
 
@@ -200,13 +226,13 @@ internal class KeyboardConfigWindow : IImguiDrawer
         }
     }
 
-    private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, int col, int row, KeyCode? depressedKey,
+    private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, Vector2 size, int col, int row,
+        KeyCode? depressedKey,
         out bool hasConsumed)
     {
         hasConsumed = false;
         var config = grid.Config;
         var currentKey = config.GetKey(col, row, layer, out var foundLayer);
-        var keyName = KeyNames.KeyToName.GetValueOrDefault(currentKey, "Unknown");
         var isKeyPressed = grid.IsKeyPressed(col, row);
 
         var keyOnCurrentLayer = foundLayer == layer;
@@ -226,9 +252,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
             ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, color);
         }
 
-
-        ImGui.Spacing();
-
         // convert col/row to a unique id for the combo box
         // to avoid conflicts with other combo boxes
         // we use stackalloc to avoid heap allocations
@@ -236,7 +259,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var baseLabelLength = baseLabel.Length;
         Span<char> comboLabel = stackalloc char[2 + baseLabelLength];
 
-        // convert col and row to bytes
         baseLabel.AsSpan().CopyTo(comboLabel);
 
         var numericPortion = comboLabel[baseLabelLength..];
@@ -245,12 +267,28 @@ internal class KeyboardConfigWindow : IImguiDrawer
         numericPortion[0] = *(char*)&colId;
         numericPortion[1] = *(char*)&rowId;
 
-        const ImGuiComboFlags comboFlags = ImGuiComboFlags.HeightLargest | ImGuiComboFlags.NoArrowButton;
+        var shownKeyName = currentKey == KeyCode.VcUndefined
+            ? ""
+            : KeyNames.MultilineNames.GetValueOrDefault(currentKey) ?? "Unknown";
 
-        // make stretch horizontally
-        ImGui.PushItemWidth(-1);
+        Span<char> buttonLabel = stackalloc char[shownKeyName.Length + comboLabel.Length];
+        shownKeyName.AsSpan().CopyTo(buttonLabel);
+        comboLabel.CopyTo(buttonLabel[shownKeyName.Length..]);
 
-        if (ImGui.BeginCombo(comboLabel, currentKey == KeyCode.VcUndefined ? "" : keyName, comboFlags))
+        const string contextMenuName = "##contextMenu";
+        Span<char> selectionMenuLabel = stackalloc char[contextMenuName.Length + buttonLabel.Length];
+        contextMenuName.AsSpan().CopyTo(selectionMenuLabel);
+        buttonLabel.CopyTo(selectionMenuLabel[contextMenuName.Length..]);
+        const ImGuiPopupFlags popupFlags = //ImGuiPopupFlags.MouseButtonRight | 
+            ImGuiPopupFlags.MouseButtonLeft;
+        //ImGuiPopupFlags.MouseButtonMask;
+
+        if (ImGui.Button(buttonLabel, size))
+        {
+            ImGui.OpenPopupOnItemClick(selectionMenuLabel, popupFlags);
+        }
+
+        if (ImGui.BeginPopupContextItem(selectionMenuLabel))
         {
             if (depressedKey != null)
             {
@@ -266,41 +304,39 @@ internal class KeyboardConfigWindow : IImguiDrawer
                     HandleFailedKeyAssignment(key, reason);
                 }
             }
-
-            foreach (var (key, name) in KeyNames.KeyToName)
+            else
             {
-                if (layer != Layer.Layer1 && !key.IsNormal() && key != KeyCode.VcUndefined)
+                foreach (var (key, name) in KeyNames.OrderedKeys)
                 {
-                    continue;
-                }
-
-                const ImGuiSelectableFlags selectableFlags = ImGuiSelectableFlags.SpanAllColumns;
-
-                var isSelected = currentKey == key;
-                if (ImGui.Selectable(name, isSelected, selectableFlags))
-                {
-                    if (config.SetKey(col, row, layer, key, out var reason))
+                    if (layer != Layer.Layer1 && !key.IsNormal() && key != KeyCode.VcUndefined)
                     {
-                        grid.UpdateLED(col, row);
+                        continue;
                     }
-                    else
+
+                    const ImGuiSelectableFlags selectableFlags = ImGuiSelectableFlags.SpanAllColumns;
+
+                    var isSelected = currentKey == key;
+                    if (ImGui.Selectable(name, isSelected, selectableFlags))
                     {
-                        HandleFailedKeyAssignment(key, reason);
+                        if (config.SetKey(col, row, layer, key, out var reason))
+                        {
+                            grid.UpdateLED(col, row);
+                        }
+                        else
+                        {
+                            HandleFailedKeyAssignment(key, reason);
+                        }
+                    }
+
+                    if (isSelected)
+                    {
+                        ImGui.SetItemDefaultFocus();
                     }
                 }
 
-                if (isSelected)
-                {
-                    ImGui.SetItemDefaultFocus();
-                }
+                ImGui.EndPopup();
             }
-
-            ImGui.EndCombo();
         }
-
-        ImGui.PopItemWidth();
-
-        ImGui.Spacing();
 
         if (isKeyPressed || !keyOnCurrentLayer)
         {

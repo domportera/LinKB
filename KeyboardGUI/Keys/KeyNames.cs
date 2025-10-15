@@ -9,6 +9,8 @@ internal class KeyNames : IReadOnlyDictionary<KeyCode, string>, IReadOnlyDiction
 {
     public static readonly FrozenDictionary<KeyCode, string> KeyToName;
     public static readonly FrozenDictionary<string, KeyCode> NameToKey;
+    public static readonly FrozenDictionary<KeyCode, string> MultilineNames;
+    public static readonly IReadOnlyList<KeyValuePair<KeyCode, string>> OrderedKeys;
 
     static KeyNames()
     {
@@ -20,8 +22,29 @@ internal class KeyNames : IReadOnlyDictionary<KeyCode, string>, IReadOnlyDiction
         dict[KeyExtensions.Mod2] = nameof(KeyExtensions.Mod2);
         dict[KeyExtensions.Mod3] = nameof(KeyExtensions.Mod3);
 
-        KeyToName = dict.ToFrozenDictionary();
-        NameToKey = dict.ToDictionary(kv => kv.Value, kv => kv.Key).ToFrozenDictionary();
+        var ordered = dict.OrderBy(x => (int)x.Key).ToArray();
+        OrderedKeys = ordered;
+        KeyToName = ordered.ToFrozenDictionary();
+        NameToKey = ordered.Select(kv => KeyValuePair.Create(kv.Value, kv.Key))
+            .ToFrozenDictionary();
+        
+        // populate pretty names, using newlines for camel case
+        MultilineNames = ordered.Select(kv =>
+        {
+            var name = kv.Value;
+            var pretty = new System.Text.StringBuilder();
+            for (var index = 0; index < name.Length; index++)
+            {
+                var c = name[index];
+                if (index > 0 && char.IsUpper(c) && !char.IsUpper(name[index - 1]))
+                {
+                    pretty.Append('\n');
+                }
+
+                pretty.Append(c);
+            }
+            return KeyValuePair.Create(kv.Key, pretty.ToString());
+        }).ToFrozenDictionary();
     }
 
     IEnumerator<KeyValuePair<string, KeyCode>> IEnumerable<KeyValuePair<string, KeyCode>>.GetEnumerator() =>

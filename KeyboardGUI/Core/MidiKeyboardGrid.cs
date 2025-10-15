@@ -236,7 +236,7 @@ internal class MidiKeyboardGrid : IDisposable
                 for (int y = 0; y < height; y++)
                 {
                     var newLayerKey = config.GetKey(x, y, newLayer, out _);
-                    if (newLayerKey == KeyCode.VcUndefined) // no layers have a key for this pad
+                    if (newLayer > previousLayer && newLayerKey == KeyCode.VcUndefined) // no layers have a key for this pad
                         continue;
 
                     var prevLayerKey = config.GetKey(x, y, previousLayer, out _);

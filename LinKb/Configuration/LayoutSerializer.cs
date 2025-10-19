@@ -67,9 +67,8 @@ public static class LayoutSerializer
             return false;
         }
 
-        keymap =
-            new KeyCode[width, height,
-                LayerExtensions.Count]; // 3 layers for modifier combinations todo: make dynamic layer count
+        // 3 layers for modifier combinations todo: make dynamic layer count
+        keymap = new KeyCode[width, height, LayerExtensions.Count]; 
 
         for (int y = 0; y < height; y++)
         {
@@ -98,12 +97,11 @@ public static class LayoutSerializer
                         code = KeyCode.Undefined;
                     }
 
-                    keymap[x, y, index] = code;
+                    keymap![x, y, index] = code;
                 }
             }
         }
 
-        keymap = (keymap);
         reason = null;
         return true;
     }

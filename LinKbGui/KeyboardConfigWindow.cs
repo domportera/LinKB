@@ -1,15 +1,15 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using ImGuiNET;
 using ImGuiWindows;
 using InputHooks;
 using LinKb.Configuration;
 using LinKb.Core;
+/*using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;*/
 
 namespace LinKbGui;
-
+/*
 internal interface IReset
 {
     ValueTask On(object? context = null);
@@ -23,7 +23,7 @@ internal interface IReset
 internal readonly struct ValueTaskReference(ValueTask task, object context)
 {
     
-}
+}*/
 
 internal class KeyboardConfigWindow : IImguiDrawer
 {

@@ -62,7 +62,7 @@ internal class WaylandEventProvider : IEventProvider
             CancellationToken = _cts.Token,
             Input = input
         };
-        var thread = new Thread(Main) { IsBackground = true };
+        var thread = new Thread(Main!) { IsBackground = true };
         thread.Start(args);
     }
 
@@ -76,9 +76,9 @@ internal class WaylandEventProvider : IEventProvider
 
     private class ThreadArgs
     {
-        public CancellationToken CancellationToken { get; init; }
+        public required CancellationToken CancellationToken { get; init; }
         public readonly AutoResetEvent AutoResetEvent = new(false);
-        public WaylandInput Input { get; init; }
+        public required WaylandInput Input { get; init; }
     }
 
     private void Main(object argsObj)

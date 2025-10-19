@@ -9,6 +9,16 @@ internal static class KeycodeMap
 {
     public static readonly IReadOnlyDictionary<KeyCode, KC> HooksCodeToKeyCode;
     public static readonly IReadOnlyDictionary<KC, KeyCode> KeyCodeToHooksCode;
+    
+    public static readonly IReadOnlyDictionary<KC, MouseButton> KeyCodeToMouseButton =
+        new Dictionary<KC, MouseButton>
+        {
+            { KC.MouseLeft, MouseButton.Button1 },
+            { KC.MouseRight, MouseButton.Button2 },
+            { KC.MouseMiddle, MouseButton.Button3 },
+            { KC.MouseBack, MouseButton.Button4 },
+            { KC.MouseForward, MouseButton.Button5 }
+        }.ToFrozenDictionary();
 
     static KeycodeMap()
     {

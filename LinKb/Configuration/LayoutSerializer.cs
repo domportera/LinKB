@@ -92,12 +92,11 @@ public static class LayoutSerializer
                         continue;
                     if (!KeyInfo.ToKey.TryGetValue(k, out var code))
                     {
-                        keymap = null;
                         reason = $"Unknown key name: {k} at position ({x},{y})";
                         code = KeyCode.Undefined;
                     }
 
-                    keymap![x, y, index] = code;
+                    keymap[x, y, index] = code;
                 }
             }
         }

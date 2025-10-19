@@ -142,9 +142,18 @@ internal class KeyboardConfigWindow : IImguiDrawer
             {
                 rowCount++;
                 ImGui.TableNextRow(rowFlags);
+                
                 for (int col = 0; col < kbWidth; col++)
                 {
-                    ImGui.TableSetColumnIndex(col);
+                    if (OperatingSystem.IsLinux())
+                    {
+                        ImGui.TableSetColumnIndex(col);
+                    }
+                    else
+                    {
+                        ImGui.TableNextColumn();
+                    }
+                    
                     DrawCell(grid: _keyboardGrid,
                         layer: layer,
                         size: new Vector2(-1, perCellHeight),
@@ -157,6 +166,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
                     consumedKey |= hasConsumed;
                 }
+                
             }
 
             ImGui.EndTable();
@@ -268,15 +278,15 @@ internal class KeyboardConfigWindow : IImguiDrawer
         {
             // highlight the cell if the key is currently pressed
             var color = new Vector4(0f, 1f, 0f, keyOnCurrentLayer ? 0.5f : 0.2f);
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, color);
-            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, color);
+            ImGui.PushStyleColor(ImGuiCol.Button, color);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
         }
         else if (!keyOnCurrentLayer)
         {
             var currentColor = *ImGui.GetStyleColorVec4(ImGuiCol.FrameBg);
             var color = currentColor with { W = currentColor.W * 0.5f };
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, color);
-            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, color);
+            ImGui.PushStyleColor(ImGuiCol.Button, color);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
         }
 
         // convert col/row to a unique id for the combo box
@@ -306,9 +316,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
         Span<char> selectionMenuLabel = stackalloc char[contextMenuName.Length + buttonLabel.Length];
         contextMenuName.AsSpan().CopyTo(selectionMenuLabel);
         buttonLabel.CopyTo(selectionMenuLabel[contextMenuName.Length..]);
-        const ImGuiPopupFlags popupFlags = //ImGuiPopupFlags.MouseButtonRight | 
-            ImGuiPopupFlags.MouseButtonLeft;
-        //ImGuiPopupFlags.MouseButtonMask;
+        const ImGuiPopupFlags popupFlags = ImGuiPopupFlags.MouseButtonLeft;
 
         if (ImGui.Button(buttonLabel, size))
         {
@@ -361,8 +369,9 @@ internal class KeyboardConfigWindow : IImguiDrawer
                     }
                 }
 
-                ImGui.EndPopup();
             }
+            
+            ImGui.EndPopup();
         }
 
         if (isKeyPressed || !keyOnCurrentLayer)

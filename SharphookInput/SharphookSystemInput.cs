@@ -2,8 +2,10 @@
 using System.Runtime.CompilerServices;
 using InputHooks;
 using SharpHook;
+using SharpHook.Data;
 using SharpHook.Providers;
 using IEventSimulator = InputHooks.IEventSimulator;
+using KeyCode = InputHooks.KeyCode;
 
 namespace SharphookInput;
 
@@ -63,8 +65,29 @@ public class SharphookSystemInput : ISystemInputBase
     private class EventSimulatorImpl : IEventSimulator
     {
         private readonly EventSimulator _eventSimulator = new();
-        public void SimulateKeyDown(KeyCode kc) => _eventSimulator.SimulateKeyPress(KeycodeMap.KeyCodeToHooksCode[kc]);
-        public void SimulateKeyUp(KeyCode kc) => _eventSimulator.SimulateKeyRelease(KeycodeMap.KeyCodeToHooksCode[kc]);
+        public void SimulateKeyDown(KeyCode kc)
+        {
+            if (KeycodeMap.KeyCodeToHooksCode.TryGetValue(kc, out var hooksCode))
+            {
+                _eventSimulator.SimulateKeyPress(hooksCode);
+            }
+            else if(KeycodeMap.KeyCodeToMouseButton.TryGetValue(kc, out var mouseButton))
+            {
+                _eventSimulator.SimulateMousePress(mouseButton);
+            }
+        }
+
+        public void SimulateKeyUp(KeyCode kc)
+        {
+            if (KeycodeMap.KeyCodeToHooksCode.TryGetValue(kc, out var hooksCode))
+            {
+                _eventSimulator.SimulateKeyRelease(hooksCode);
+            }
+            else if(KeycodeMap.KeyCodeToMouseButton.TryGetValue(kc, out var mouseButton))
+            {
+                _eventSimulator.SimulateMouseRelease(mouseButton);
+            }
+        }
 
         public void SimulateKeyRepeat(KeyCode kc) =>
             _eventSimulator.SimulateKeyPress(KeycodeMap.KeyCodeToHooksCode[kc]);

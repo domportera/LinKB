@@ -1,4 +1,7 @@
 
+Note: Linux users need to be a part of the "input" group on their machines.
+`sudo usermod -aG input YOUR_USERNAME`
+
 ### To-do
 - include two default configurations in the build - "normal", "normal-split" and my preferred split layout
 - usage instructions

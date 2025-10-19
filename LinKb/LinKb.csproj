@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Deterministic>true</Deterministic>
+        <RootNamespace>LinKb</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Midi/Midi.csproj"/>
+        <ProjectReference Include="../Linnstrument/Linnstrument.csproj"/>
+        <ProjectReference Include="../InputHooks/InputHooks.csproj"/>
+        <ProjectReference Include="..\SharphookInput\SharphookInput.csproj" />
+        <ProjectReference Include="..\WaylandInput\WaylandInput.csproj" />
+    </ItemGroup>
+</Project>

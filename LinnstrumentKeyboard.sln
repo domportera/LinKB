@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Midi", "Midi\Midi.csproj", "{06DB70D4-DDB5-47F4-8FC2-860021AEDA59}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeyboardGUI", "KeyboardGUI\KeyboardGUI.csproj", "{72BD82EA-E014-4701-8705-76727DD66A96}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LinKb", "LinKb\LinKb.csproj", "{72BD82EA-E014-4701-8705-76727DD66A96}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linnstrument", "Linnstrument\Linnstrument.csproj", "{3898C13B-9CCF-4F42-8994-D3F81418DF67}"
 EndProject
@@ -10,7 +10,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImGuiWindows", "ImGuiWindow
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SilkWindows", "AppWindows.Silk.NET\SilkWindows.csproj", "{41C131ED-7933-48C3-8124-2E99ED3CE8BC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaylandApp", "WaylandApp\WaylandApp.csproj", "{F18AD286-9EE8-4026-BE33-3D6CEBED24BC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaylandInput", "WaylandInput\WaylandInput.csproj", "{F18AD286-9EE8-4026-BE33-3D6CEBED24BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharphookInput", "SharphookInput\SharphookInput.csproj", "{CCEA783F-31FE-4DCD-A961-9574194A4C21}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InputHooks", "InputHooks\InputHooks.csproj", "{78D14AD5-F5F1-4FDA-9F94-6219675AA5D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LinKbConsole", "LinKbConsole\LinKbConsole.csproj", "{B9EC2261-0370-43FF-9437-69CA2DA5B0F9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LinKbGui", "LinKbGui\LinKbGui.csproj", "{07691418-6545-423C-82E1-D52764C6F36B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -42,5 +50,21 @@ Global
 		{F18AD286-9EE8-4026-BE33-3D6CEBED24BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F18AD286-9EE8-4026-BE33-3D6CEBED24BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F18AD286-9EE8-4026-BE33-3D6CEBED24BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCEA783F-31FE-4DCD-A961-9574194A4C21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCEA783F-31FE-4DCD-A961-9574194A4C21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCEA783F-31FE-4DCD-A961-9574194A4C21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCEA783F-31FE-4DCD-A961-9574194A4C21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78D14AD5-F5F1-4FDA-9F94-6219675AA5D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78D14AD5-F5F1-4FDA-9F94-6219675AA5D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78D14AD5-F5F1-4FDA-9F94-6219675AA5D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78D14AD5-F5F1-4FDA-9F94-6219675AA5D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9EC2261-0370-43FF-9437-69CA2DA5B0F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9EC2261-0370-43FF-9437-69CA2DA5B0F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9EC2261-0370-43FF-9437-69CA2DA5B0F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9EC2261-0370-43FF-9437-69CA2DA5B0F9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07691418-6545-423C-82E1-D52764C6F36B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07691418-6545-423C-82E1-D52764C6F36B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07691418-6545-423C-82E1-D52764C6F36B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07691418-6545-423C-82E1-D52764C6F36B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

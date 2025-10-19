@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <PublishAot>true</PublishAot>
         <RootNamespace>Linn</RootNamespace>
+        <Deterministic>true</Deterministic>
     </PropertyGroup>
 
     <ItemGroup>

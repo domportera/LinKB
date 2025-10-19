@@ -26,17 +26,17 @@ internal static class KeySupport
         
         // validate config
         var keys = config.Keymap;
-        for (var x = 0; x < keys.GetLength(0); x++)
+        for (var x = 0; x < keys.XLength; x++)
         {
-            for(var y = 0; y < keys.GetLength(1); y++)
+            for(var y = 0; y < keys.YLength; y++)
             {
-                for(var l = 0; l < keys.GetLength(2); l++)
+                for(var z = 0; z < keys.ZLength; z++)
                 {
-                    ref var key = ref keys[x, y, l];
+                    ref readonly var key = ref keys[x, y, z];
                     if (key is not KeyCode.Undefined and not KeyCode.Mod1 and not KeyCode.Mod2 and not KeyCode.Mod3 && !_hooks.SupportsKey(key))
                     {
                         Log.Error($"Key {key} is not supported on this platform - replacing with {KeyCode.Undefined.Name()}.");
-                        key = KeyCode.Undefined;
+                        config.SetKey(x, y, (Layer)z, KeyCode.Undefined, out _);
                     }
                 }
             }

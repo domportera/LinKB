@@ -229,8 +229,9 @@ internal unsafe partial class WaylandInput
             _uInputFileDescriptorWrite = -1;
         }
 
-        foreach (var fd in _realKeyboardFileDescriptors)
+        for (var index = _realKeyboardFileDescriptors.Count - 1; index >= 0; index--)
         {
+            var fd = _realKeyboardFileDescriptors[index];
             Close(fd);
         }
 

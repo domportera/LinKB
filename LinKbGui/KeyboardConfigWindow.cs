@@ -1,5 +1,7 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 using ImGuiWindows;
 using InputHooks;
@@ -7,6 +9,21 @@ using LinKb.Configuration;
 using LinKb.Core;
 
 namespace LinKbGui;
+
+internal interface IReset
+{
+    ValueTask On(object? context = null);
+    ValueTask Off(object? context = null);
+    bool AcceptsContext => false;
+    bool IsOn { get; }
+}
+
+[AsyncMethodBuilder(typeof(AsyncValueTaskMethodBuilder))]
+[StructLayout(LayoutKind.Auto)]
+internal readonly struct ValueTaskReference(ValueTask task, object context)
+{
+    
+}
 
 internal class KeyboardConfigWindow : IImguiDrawer
 {
@@ -52,13 +69,16 @@ internal class KeyboardConfigWindow : IImguiDrawer
     public unsafe void OnRender(string windowName, double deltaSeconds, ImFonts fonts, float dpiScale)
     {
         // render the grid config ui
-        var config = _keyboardGrid.Config;
-        var kbWidth = config.Width;
-        var kbHeight = config.Height;
+        var kbWidth = _keyboardGrid.Width;
+        var kbHeight = _keyboardGrid.Height;
         var consumedKey = false;
 
         // render as a table
-        DrawFileMenu(config);
+        ReadOnlySpan3D<KeyCode> loaded = default;
+        if (DrawFileMenu(_keyboardGrid.Keymap, out loaded))
+        {
+            _keyboardGrid.ApplyKeymap(loaded);
+        }
 
         SameLineSeparator();
 
@@ -213,11 +233,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
         return clicked;
     }
 
-    private static void DrawFileMenu(KeyboardGridConfig config)
+    private static bool DrawFileMenu(ReadOnlySpan3D<KeyCode> config, out ReadOnlySpan3D<KeyCode> loadedConfig)
     {
         if (ImGui.Button("Save"))
         {
-            LayoutSerializer.Save(UserInfo.DefaultConfigFile, config);
+            _ = LayoutSerializer.Save(UserInfo.DefaultConfigFile, config);
         }
 
         ImGui.SameLine();
@@ -226,8 +246,12 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         if (ImGui.Button("Load"))
         {
-            config.SetKeymap(0, LayoutSerializer.LoadOrCreateConfig(UserInfo.DefaultConfigFile).Result.Keymap);
+            loadedConfig = LayoutSerializer.LoadOrCreateKeymap(UserInfo.DefaultConfigFile, config.XLength, config.YLength, config.ZLength).Result;
+            return true;
         }
+
+        loadedConfig = default;
+        return false;
     }
 
     private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, Vector2 size, int col, int row,
@@ -235,8 +259,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
         out bool hasConsumed)
     {
         hasConsumed = false;
-        var config = grid.Config;
-        var currentKey = config.GetKey(col, row, layer, out var foundLayer);
+        var currentKey = grid.GetKey(col, row, out var foundLayer, layer);
         var isKeyPressed = grid.IsPadPressed(col, row);
 
         var keyOnCurrentLayer = foundLayer == layer;
@@ -297,7 +320,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
             if (depressedKey != null)
             {
                 var key = depressedKey.Value == KeyCode.Escape ? KeyCode.Undefined : depressedKey.Value;
-                if (config.SetKey(col, row, layer, key, out var reason))
+                if (grid.TrySetKey(col, row, layer, key, out var reason))
                 {
                     grid.UpdateLED(col, row);
                     hasConsumed = true;
@@ -322,7 +345,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
                     var isSelected = currentKey == key;
                     if (ImGui.Selectable(name, isSelected, selectableFlags))
                     {
-                        if (config.SetKey(col, row, layer, key, out var reason))
+                        if (grid.TrySetKey(col, row, layer, key, out var reason))
                         {
                             grid.UpdateLED(col, row);
                         }

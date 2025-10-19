@@ -32,7 +32,8 @@ public static class Main
 
     public static async Task<int> Run(string[] args, IApplication application)
     {
-        var config = await LayoutSerializer.LoadOrCreateConfig(UserInfo.DefaultConfigFile);
+        var keys = await LayoutSerializer.LoadOrCreateKeymap(UserInfo.DefaultConfigFile, 25, 8, 8);
+        var config = new KeyboardGridConfig(keys);
         var items = await KeySupport.Begin(config);
         
         var (gridDevice, midiDeviceStatus) = await TryOpenLinnstrument();

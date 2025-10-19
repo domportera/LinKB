@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using InputHooks;
 using LinKb.Configuration;
 using LinKb.Keys;
@@ -10,11 +11,24 @@ namespace LinKb.Core;
 
 public class MidiKeyboardGrid
 {
-    public KeyboardGridConfig Config => _config;
-
+    public int Width => _config.Width;
+    public int Height => _config.Height;
     public Layer Layer => _layer;
 
     public bool EnableKeyEvents = true;
+    public bool IsPadPressed(int x, int y) => _padStates[x, y];
+    public bool IsKeyPressed(KeyCode key) => _keyPressedTimes[(int)key] != NotPressedTime;
+    public KeyCode GetKey(int x, int y, out Layer foundLayer, Layer? layer = null) => _config.GetKey(x, y, layer ?? Layer, out foundLayer);
+    public ReadOnlySpan3D<KeyCode> Keymap => _config.Keymap;
+
+    public void UpdateLED(int col, int row)
+    {
+        if (_ledHandler == null)
+            return;
+
+        _ledHandler.UpdateButtonState(col, row);
+        _ledHandler.PushLEDs();
+    }
 
 
     internal MidiKeyboardGrid(MidiDevice device, KeyboardGridConfig config, IEventSimulator eventSimulator)
@@ -72,17 +86,6 @@ public class MidiKeyboardGrid
         _device.MidiReceived += OnMidiReceived;
     }
 
-    public bool IsPadPressed(int x, int y) => _padStates[x, y];
-    public bool IsKeyPressed(KeyCode key) => _keyPressedTimes[(int)key] != NotPressedTime;
-
-    public void UpdateLED(int col, int row)
-    {
-        if (_ledHandler == null)
-            return;
-
-        _ledHandler.UpdateButtonState(col, row);
-        _ledHandler.PushLEDs();
-    }
 
     internal void ApplyAutoRepeatSettings(int? repeatDelay, int? repeatRate)
     {
@@ -353,4 +356,11 @@ public class MidiKeyboardGrid
     private readonly MidiDevice _device;
     private readonly long[] _keyPressedTimes = new long[ushort.MaxValue + 1];
     private readonly Stopwatch _stopwatch;
+
+    public bool TrySetKey(int col, int row, Layer layer, KeyCode key, [NotNullWhen(false)] out string? reason) => _config.SetKey(col, row, layer, key, out reason);
+
+    public void ApplyKeymap(ReadOnlySpan3D<KeyCode> loaded)
+    {
+        _config.SetKeymap(0, loaded);
+    }
 }

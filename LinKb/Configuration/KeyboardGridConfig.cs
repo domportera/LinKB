@@ -17,14 +17,14 @@ public class KeyboardGridConfig
 
     internal KeyboardGridConfig(KeyCode[,,] keymap)
     {
-        Keymap = keymap;
+        KeymapArray = keymap;
         var depth = keymap.GetLength(2);
         if (depth < LayerExtensions.Count)
         {
             // recreate the array with the correct depth
             var newMap = new KeyCode[keymap.GetLength(0), keymap.GetLength(1), LayerExtensions.Count];
             Array.Copy(keymap, newMap, keymap.Length);
-            Keymap = newMap;
+            KeymapArray = newMap;
             Log.Error($"Keymap depth must be at least ({LayerExtensions.Count}). It was ({depth}). " +
                       $"Recreated the map to account for this.", nameof(keymap));
         }
@@ -35,10 +35,11 @@ public class KeyboardGridConfig
                 nameof(keymap));
     }
 
-    public KeyCode[,,] Keymap { get; private set; }
-    public int Width => Keymap.GetLength(0);
-    public int Height => Keymap.GetLength(1);
-    public int LayerCount => Keymap.GetLength(2);
+    public ReadOnlySpan3D<KeyCode> Keymap => KeymapArray;
+    private KeyCode[,,] KeymapArray;
+    public int Width => Keymap.XLength;
+    public int Height => Keymap.YLength;
+    public int LayerCount => Keymap.ZLength;
 
     public KeyCode GetKey(int colX, int rowY, Layer modLevel, out Layer foundLayer)
     {
@@ -81,16 +82,16 @@ public class KeyboardGridConfig
             }
         }
 
-        Keymap[col, row, (int)layer] = key;
+        KeymapArray[col, row, (int)layer] = key;
         reason = null;
         return true;
     }
 
-    public void SetKeymap(int i, KeyCode[,,] keymap)
+    public void SetKeymap(int i, ReadOnlySpan3D<KeyCode> keymap)
     {
         if (i == 0)
         {
-            Keymap = keymap;
+            KeymapArray = keymap.ToArray();
         }
         else
         {
@@ -98,3 +99,5 @@ public class KeyboardGridConfig
         }
     }
 }
+
+// todo: bounds checks

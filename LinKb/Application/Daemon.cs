@@ -20,6 +20,7 @@ internal class Daemon
             grid.UpdateRepeats();
         }
         
+        Log.Debug("Application stopped");
         return Task.CompletedTask;
     }
 }

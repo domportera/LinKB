@@ -45,13 +45,15 @@ internal readonly struct Span3D<T>
         _data = other._data;
     }
 
-    // array accessors
-    public T this[int x, int y, int z]
-    {
-        get => _data[x, y, z];
-        set => _data[x, y, z] = value;
-    }
-    
+    /// <summary>
+    /// Todo: optimized indexer
+    /// Todo: Range accessors
+    /// <see cref="System.Span{T}.get_Item"/>
+    /// </summary>
+    /// <param name="x"></param>
+    /// <param name="y"></param>
+    /// <param name="z"></param>
+    public ref T this[int x, int y, int z] => ref _data[x, y, z];
     // todo: range accessors - can we do this in 1d, 2d, and 3d?
     
     

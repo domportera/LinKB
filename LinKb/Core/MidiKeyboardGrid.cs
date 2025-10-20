@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using InputHooks;
 using LinKb.Configuration;
 using LinKb.Keys;
@@ -20,6 +21,7 @@ public class MidiKeyboardGrid
     public bool IsKeyPressed(KeyCode key) => _keyPressedTimes[(int)key] != NotPressedTime;
     public KeyCode GetKey(int x, int y, out Layer foundLayer, Layer? layer = null) => _config.GetKey(x, y, layer ?? Layer, out foundLayer);
     public ReadOnlySpan3D<KeyCode> Keymap => _config.Keymap;
+    internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
 
     public void UpdateLED(int col, int row)
     {
@@ -42,48 +44,74 @@ public class MidiKeyboardGrid
         _device = device;
         if (device is ILEDGrid ledGrid)
         {
-            _ledHandler = new LEDHandler(ledGrid, (x, y) =>
-            {
-                var keycode = _config.GetKey(x, y, Layer, out _);
-                if (keycode is KeyCode.Undefined)
-                {
-                    return KeyColors.UnlitColor;
-                }
-
-
-                var keyInt = (int)keycode;
-                var isPressed = _keyPressedTimes[keyInt] != NotPressedTime;
-                if (isPressed)
-                {
-                    return KeyColors.PressedColor;
-                }
-
-                if (keycode >= KeyExtensions.ModifierKeyMin)
-                    return KeyColors.ModKeyColor;
-
-                if (keycode is KeyCode.F or KeyCode.J)
-                {
-                    return KeyColors.HomeKeyColor;
-                }
-
-                if (keycode is KeyCode.CapsLock or KeyCode.NumLock or KeyCode.ScrollLock)
-                {
-                    // todo - get actual lock status and color accordingly
-                    return KeyColors.LockedColor;
-                }
-
-                if (keycode.IsLetter())
-                {
-                    return KeyColors.LitColor;
-                }
-
-                return keycode.IsNumberOrSymbol() ? KeyColors.NumberSymbolColor : KeyColors.SpecialLitColor;
-            });
+            _ledHandler = new LEDHandler(ledGrid, GetColor);
 
             _ledHandler.UpdateAndPushAll(_config.Width, _config.Height);
         }
 
         _device.MidiReceived += OnMidiReceived;
+    }
+
+    public Vector4 GetColorVector(int col, int row)
+    {
+        var color = GetColor(col, row, Layer);
+        
+        return color switch 
+        {
+            LedColor.Off => Vector4.Zero,
+            LedColor.Red => new Vector4(1f, 0f, 0f, 1f),
+            LedColor.Blue => new Vector4(0f, 0f, 1f, 1f),
+            LedColor.Green => new Vector4(0f, 1f, 0f, 1f),
+            LedColor.Yellow => new Vector4(1f, 1f, 0f, 1f),
+            LedColor.White => new Vector4(1f, 1f, 1f, 1f),
+            LedColor.Cyan => new Vector4(0f, 1f, 1f, 1f),
+            LedColor.Magenta => new Vector4(1f, 0f, 1f, 1f),
+            LedColor.Default => new  Vector4(0.5f, 0.5f, 0.5f, 1f),
+            LedColor.Orange => new Vector4(1f, 0.5f, 0f, 1f),
+            LedColor.Lime => new Vector4(0.75f, 1f, 0f, 1f),
+            LedColor.Pink => new Vector4(1f, 0.75f, 0.8f, 1f),
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
+    private LedColor GetColor(int col, int row) => GetColor(col, row, Layer);
+    private LedColor GetColor(int x, int y, Layer layer)
+    {
+        var keycode = _config.GetKey(x, y, layer, out _);
+        if (keycode is KeyCode.Undefined or KeyCode.Blocker)
+        {
+            return KeyColors.UnlitColor;
+        }
+
+
+        var keyInt = (int)keycode;
+        var isPressed = _keyPressedTimes[keyInt] != NotPressedTime;
+        if (isPressed)
+        {
+            return KeyColors.PressedColor;
+        }
+
+        if (keycode >= KeyCode.ModifierKeyMin) return KeyColors.ModKeyColor;
+
+        if (keycode is KeyCode.F or KeyCode.J)
+        {
+            return KeyColors.HomeKeyColor;
+        }
+
+        if (keycode is KeyCode.CapsLock or KeyCode.NumLock or KeyCode.ScrollLock)
+        {
+            // todo - get actual lock status and color accordingly
+            return KeyColors.LockedColor;
+        }
+
+        if (keycode.IsLetter())
+        {
+            return KeyColors.LitColor;
+        }
+
+        if (keycode.IsNumber())
+            return KeyColors.NumberColor;
+
+        return keycode.IsSymbol() ? KeyColors.SymbolColor : KeyColors.SpecialLitColor;
     }
 
 
@@ -110,7 +138,7 @@ public class MidiKeyboardGrid
 
         // todo: simd?
         var autoRepeatDelayTicksSigned = (long)_autoRepeatDelayTicks;
-        var maxIdx = (int)KeyExtensions.ModifierKeyMin;
+        var maxIdx = (int)KeyCode.NonSystemKeyStart;
         for (var i = 0; i < maxIdx; i++)
         {
             var pressTime = _keyPressedTimes[i];
@@ -245,7 +273,7 @@ public class MidiKeyboardGrid
             long[] keyPressedState, ulong[] repeatCounts, IEventSimulator eventSimulator, KeyboardGridConfig config)
         {
             // non-modifier keys
-            if (kc < KeyExtensions.ModifierKeyMin)
+            if (kc < KeyCode.NonSystemKeyStart)
             {
                 if (isPress)
                 {
@@ -258,6 +286,9 @@ public class MidiKeyboardGrid
 
                 return;
             }
+
+            if (kc < KeyCode.ModifierKeyMin)
+                return;
 
             var previousLayer = currentLayer;
 

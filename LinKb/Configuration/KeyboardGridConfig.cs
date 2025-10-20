@@ -36,6 +36,7 @@ public class KeyboardGridConfig
     }
 
     public ReadOnlySpan3D<KeyCode> Keymap => KeymapArray;
+    internal Span3D<KeyCode> KeymapRW => KeymapArray;
     private KeyCode[,,] KeymapArray;
     public int Width => Keymap.XLength;
     public int Height => Keymap.YLength;
@@ -68,14 +69,14 @@ public class KeyboardGridConfig
     {
         if (layer != Layer.Layer1)
         {
-            if (key >= KeyExtensions.ModifierKeyMin)
+            if (key >= KeyCode.ModifierKeyMin)
             {
                 reason = "Cannot place special keys on non-default layers";
                 return false;
             }
 
             var currentKey = GetKey(col, row, layer - 1, out var foundLayer);
-            if (foundLayer != layer && currentKey >= KeyExtensions.ModifierKeyMin)
+            if (foundLayer != layer && currentKey >= KeyCode.ModifierKeyMin)
             {
                 reason = "Cannot place keys on non-default layers if a modifier key is present on a lower layer";
                 return false;

@@ -5,6 +5,7 @@ using ImGuiWindows;
 using InputHooks;
 using LinKb.Configuration;
 using LinKb.Core;
+
 /*using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;*/
 
@@ -22,7 +23,7 @@ internal interface IReset
 [StructLayout(LayoutKind.Auto)]
 internal readonly struct ValueTaskReference(ValueTask task, object context)
 {
-    
+
 }*/
 
 internal class KeyboardConfigWindow : IImguiDrawer
@@ -53,9 +54,9 @@ internal class KeyboardConfigWindow : IImguiDrawer
         {
             Log.Warn($"Received keyboard event that's mapped to multiple keys - only the first will be used: {key}");
         }
-        
+
         Log.Debug($"Received key event: {key} ({e.IsDown}) ({e.IsSimulated})");
-        
+
         lock (_keyLock)
         {
             _pressedKeys[key] = e.IsDown;
@@ -137,23 +138,14 @@ internal class KeyboardConfigWindow : IImguiDrawer
                 ImGui.TableSetupColumn(colLabel, columnFlags);
             }
 
-            int rowCount = 0;
             for (int row = kbHeight - 1; row >= 0; row--)
             {
-                rowCount++;
                 ImGui.TableNextRow(rowFlags);
-                
+
                 for (int col = 0; col < kbWidth; col++)
                 {
-                    if (OperatingSystem.IsLinux())
-                    {
-                        ImGui.TableSetColumnIndex(col);
-                    }
-                    else
-                    {
-                        ImGui.TableNextColumn();
-                    }
-                    
+                    ImGui.TableSetColumnIndex(col);
+
                     DrawCell(grid: _keyboardGrid,
                         layer: layer,
                         size: new Vector2(-1, perCellHeight),
@@ -166,7 +158,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
                     consumedKey |= hasConsumed;
                 }
-                
             }
 
             ImGui.EndTable();
@@ -256,7 +247,8 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         if (ImGui.Button("Load"))
         {
-            loadedConfig = LayoutSerializer.LoadOrCreateKeymap(UserInfo.DefaultConfigFile, config.XLength, config.YLength, config.ZLength).Result;
+            loadedConfig = LayoutSerializer
+                .LoadOrCreateKeymap(UserInfo.DefaultConfigFile, config.XLength, config.YLength, config.ZLength).Result;
             return true;
         }
 
@@ -265,7 +257,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
     }
 
     private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, Vector2 size, int col, int row,
-        KeyCode? depressedKey,
+        KeyCode? depressedKey, 
         out bool hasConsumed)
     {
         hasConsumed = false;
@@ -273,18 +265,29 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var isKeyPressed = grid.IsPadPressed(col, row);
 
         var keyOnCurrentLayer = foundLayer == layer;
+        
+        // get color based on key
+        var color = grid.GetColorVector(col, row);
+        const float brightness = 0.4f;
+        color *= brightness;
+        color.W = 1;
+        
 
         if (isKeyPressed)
         {
             // highlight the cell if the key is currently pressed
-            var color = new Vector4(0f, 1f, 0f, keyOnCurrentLayer ? 0.5f : 0.2f);
+            color = new Vector4(0f, 1f, 0f, keyOnCurrentLayer ? 0.5f : 0.2f);
             ImGui.PushStyleColor(ImGuiCol.Button, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
         }
         else if (!keyOnCurrentLayer)
         {
-            var currentColor = *ImGui.GetStyleColorVec4(ImGuiCol.FrameBg);
-            var color = currentColor with { W = currentColor.W * 0.5f };
+            color = color with { W = color.W * 0.5f };
+            ImGui.PushStyleColor(ImGuiCol.Button, color);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
+        }
+        else
+        {
             ImGui.PushStyleColor(ImGuiCol.Button, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
         }
@@ -343,7 +346,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
             {
                 foreach (var (key, name) in KeyInfo.OrderedKeys)
                 {
-                    if (layer != Layer.Layer1 && !KeyExtensions.IsLetter(key) && key != KeyCode.Undefined)
+                    if (layer != Layer.Layer1 && KeyExtensions.IsMod(key))
                     {
                         continue;
                     }
@@ -368,17 +371,13 @@ internal class KeyboardConfigWindow : IImguiDrawer
                         ImGui.SetItemDefaultFocus();
                     }
                 }
-
             }
-            
+
             ImGui.EndPopup();
         }
 
-        if (isKeyPressed || !keyOnCurrentLayer)
-        {
-            ImGui.PopStyleColor();
-            ImGui.PopStyleColor();
-        }
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
     }
 
     private static void HandleFailedKeyAssignment(KeyCode key, string reason) => Log.Error(reason);

@@ -22,7 +22,7 @@ internal class GuiApplication : IApplication
         if(_hooks is null || _grid is null)
             throw new InvalidOperationException("Application not initialized");
         
-        SilkWindowProvider.Initialize();
+        SilkWindowProvider.Initialize(false);
         IImguiWindowProvider provider = new SilkWindowProvider();
         var drawer = new KeyboardConfigWindow(_grid, _hooks);
 
@@ -33,5 +33,8 @@ internal class GuiApplication : IApplication
             Vsync = true,
             SizeFlags = WindowSizeFlags.ResizeGui | WindowSizeFlags.ResizeWindow
         });
+        
+        Log.Info("GUI application has exited");
+        await Task.Delay(1000);
     }
 }

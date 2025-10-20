@@ -33,7 +33,7 @@ internal static class KeySupport
                 for(var z = 0; z < keys.ZLength; z++)
                 {
                     ref readonly var key = ref keys[x, y, z];
-                    if (key is not KeyCode.Undefined and not KeyCode.Mod1 and not KeyCode.Mod2 and not KeyCode.Mod3 && !_hooks.SupportsKey(key))
+                    if (key != KeyCode.Undefined && key < KeyCode.NonSystemKeyStart && !_hooks.SupportsKey(key))
                     {
                         Log.Error($"Key {key} is not supported on this platform - replacing with {KeyCode.Undefined.Name()}.");
                         config.SetKey(x, y, (Layer)z, KeyCode.Undefined, out _);

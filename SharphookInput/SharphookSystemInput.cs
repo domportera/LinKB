@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using InputHooks;
 using SharpHook;
-using SharpHook.Data;
 using SharpHook.Providers;
 using IEventSimulator = InputHooks.IEventSimulator;
 using KeyCode = InputHooks.KeyCode;
@@ -28,15 +27,12 @@ public class SharphookSystemInput : ISystemInputBase
 
     public async Task Stop()
     {
-        _hooks?.Stop();
         if (_hookTask != null)
         {
+            _hooks!.Stop();
             await _hookTask;
-        }
-
-        if (_hooks is { IsDisposed: false })
-        {
-            _hooks.Dispose();
+            if(!_hooks.IsDisposed)
+                _hooks.Dispose();
         }
     }
 
@@ -89,8 +85,13 @@ public class SharphookSystemInput : ISystemInputBase
             }
         }
 
-        public void SimulateKeyRepeat(KeyCode kc) =>
-            _eventSimulator.SimulateKeyPress(KeycodeMap.KeyCodeToHooksCode[kc]);
+        public void SimulateKeyRepeat(KeyCode kc)
+        {
+            if(!KeycodeMap.KeyCodeToHooksCode.TryGetValue(kc, out var hooksCode))
+                return;
+            
+            _eventSimulator.SimulateKeyPress(hooksCode);
+        }
     }
 
     private class EventProvider : IEventProvider

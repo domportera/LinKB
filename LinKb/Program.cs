@@ -23,24 +23,17 @@ namespace LinKb;
 /// </summary>
 public static class Main
 {
-    private enum ExitCodes
-    {
-        Success = 0,
-        FailedToOpenDevice = 1,
-        FailedToApplyUserFirmwareMode = 2
-    }
-
-    public static async Task<int> Run(string[] args, IApplication application)
+    public static async Task<ExitCodes> Run(string[] args, IApplication application)
     {
         var keys = await LayoutSerializer.LoadOrCreateKeymap(UserInfo.DefaultConfigFile, 25, 8, 8);
         var config = new KeyboardGridConfig(keys);
         var items = await KeySupport.Begin(config);
-        
+
         var (gridDevice, midiDeviceStatus) = await TryOpenLinnstrument();
 
         if (midiDeviceStatus != ExitCodes.Success)
         {
-            return (int)midiDeviceStatus;
+            return midiDeviceStatus;
         }
 
         var grid = new MidiKeyboardGrid(gridDevice!, config, items.Simulator);
@@ -53,11 +46,17 @@ public static class Main
         Log.Debug("Keyboard grid disposed");
 
         await KeySupport.End();
-        
-        _ = await TryCloseLinnstrument(gridDevice!);
-        Log.Info("Linnstrument closed");
 
-        return (int)ExitCodes.Success;
+        if (await TryCloseLinnstrument(gridDevice!))
+        {
+            Log.Info("Linnstrument closed");
+        }
+        else
+        {
+            Log.Error("Failed to close Linnstrument properly");
+        }
+
+        return ExitCodes.Success;
     }
 
     private static async Task<bool> TryCloseLinnstrument(Linnstrument linnstrument)
@@ -65,7 +64,7 @@ public static class Main
         var success = linnstrument.TryApplyUserFirmwareMode(false);
         if (success)
         {
-            await Task.Delay(200);
+            await Task.Delay(200); // dummy wait since we're not actually waiting for device response yet
         }
         else
         {
@@ -85,7 +84,7 @@ public static class Main
             Log.Info("Failed to open MIDI device: " + linnstrumentResult.Info);
             return (null, ExitCodes.FailedToOpenDevice);
         }
-        
+
         var linnstrument = linnstrumentResult.Device;
         if (linnstrument is null)
         {
@@ -112,4 +111,11 @@ public static class Main
 
         return (linnstrument, ExitCodes.Success);
     }
+}
+
+public enum ExitCodes
+{
+    Success = 0,
+    FailedToOpenDevice = 1,
+    FailedToApplyUserFirmwareMode = 2
 }

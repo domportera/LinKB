@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Security;
+using Microsoft.Extensions.Logging;
 
 namespace LinKb.Core;
 
@@ -7,13 +9,6 @@ namespace LinKb.Core;
 public static class Log
 {
     private readonly record struct LogInfo(LogLevel Level, string Message);
-
-    public enum LogLevel
-    {
-        Info,
-        Warning,
-        Error
-    }
 
     private static readonly Queue<LogInfo> LogQueue = new();
     private static readonly Lock LogLock = new();
@@ -94,9 +89,9 @@ public static class Log
                     break;
                 }
 
-                var remainingCount = int.MaxValue;
+                int remainingCount;
 
-                while (remainingCount > 0)
+                do
                 {
                     LogInfo info;
                     lock (LogLock)
@@ -114,34 +109,9 @@ public static class Log
 
                     if (canLogToConsole)
                     {
-                        if (!canChangeColor)
-                        {
-                            await Console.Out.WriteLineAsync(info.Message);
-                        }
-                        else
-                        {
-                            switch (info.Level)
-                            {
-                                case LogLevel.Info:
-                                    await Console.Out.WriteLineAsync(info.Message);
-                                    break;
-                                case LogLevel.Warning:
-                                    Console.ForegroundColor = ConsoleColor.Yellow;
-                                    await Console.Out.WriteLineAsync(info.Message);
-                                    Console.ResetColor();
-                                    break;
-                                case LogLevel.Error:
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    await Console.Error.WriteLineAsync(info.Message);
-                                    Console.ResetColor();
-                                    break;
-                                default:
-                                    await Console.Out.WriteLineAsync(info.Message);
-                                    break;
-                            }
-                        }
+                        await Output(canChangeColor, info);
                     }
-                }
+                } while (remainingCount > 0);
             }
 
             resetEvent.Set();
@@ -157,18 +127,66 @@ public static class Log
                 // ignored
             }
         }
+
+        return;
+
+        static async Task Output(bool canChangeColor, LogInfo info)
+        {
+            if (!canChangeColor)
+            {
+                await Console.Out.WriteLineAsync(info.Message);
+                return;
+            }
+
+            switch (info.Level)
+            {
+                case LogLevel.Information:
+                case LogLevel.Debug:
+                    await Console.Out.WriteLineAsync(info.Message);
+                    break;
+                case LogLevel.Trace:
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    await Console.Out.WriteLineAsync(info.Message);
+                    Console.ResetColor();
+                    break;
+                case LogLevel.Warning:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    await Console.Out.WriteLineAsync(info.Message);
+                    Console.ResetColor();
+                    break;
+                case LogLevel.Error:
+                case LogLevel.Critical:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    await Console.Error.WriteLineAsync(info.Message);
+                    Console.ResetColor();
+                    break;
+                default:
+                    await Console.Out.WriteLineAsync(info.Message);
+                    break;
+            }
+        }
     }
 
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough]
+    [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
     public static void Write(string? msg, LogLevel level, object? owner = null)
     {
-        if (msg == null)
+        if (level == LogLevel.None || msg == null)
             return;
 
-        if (owner is not null)
-            msg = $"[{owner.GetType().Name}] {msg}";
+        if (!Enum.IsDefined(level))
+        {
+            throw new ArgumentOutOfRangeException(nameof(level), $"Invalid log level {level}");
+        }
 
-        if (level == LogLevel.Error)
+        msg = owner switch
+        {
+            string s => $"[{s}] {msg}",
+            not null => $"[{owner.GetType().Name}] {msg}",
+            _ => msg
+        };
+
+        if (level is LogLevel.Error or LogLevel.Critical or LogLevel.Trace)
         {
             // add stack trace to message
             msg = $"{msg}\n{new StackTrace(2, true)}";
@@ -185,21 +203,21 @@ public static class Log
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough, Conditional("DEBUG")]
     public static void Debug(string? msg, object? owner = null)
     {
-        Write(msg, LogLevel.Info, owner);
+        Write(msg, LogLevel.Debug, owner);
     }
 
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough, Conditional("DEBUG")]
     public static void Debug(object msg, object? owner = null)
     {
-        Write(msg.ToString(), LogLevel.Info, owner);
+        Write(msg.ToString(), LogLevel.Debug, owner);
     }
 
 
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough]
-    public static void Info(string? msg, object? owner = null) => Write(msg, LogLevel.Info, owner);
+    public static void Info(string? msg, object? owner = null) => Write(msg, LogLevel.Information, owner);
 
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough]
-    public static void Info(object msg, object? owner = null) => Write(msg.ToString(), LogLevel.Info, owner);
+    public static void Info(object msg, object? owner = null) => Write(msg.ToString(), LogLevel.Information, owner);
 
     [DebuggerHidden, StackTraceHidden, DebuggerStepThrough]
     public static void Error(string? msg, object? owner = null) => Write(msg, LogLevel.Error, owner);

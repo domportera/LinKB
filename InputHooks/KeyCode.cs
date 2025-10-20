@@ -160,21 +160,27 @@ public enum KeyCode : ushort
     //@formatter:on
 
 
-    /// <summary>
-    /// Modifier key 1 - not to be used outside of this application
-    /// This forms the first bit of a layer number
-    /// </summary>
-    Mod1 = ushort.MaxValue - Layer.Layer2 + 1,
-
-    /// <summary>
-    /// Modifier key 2 - not to be used outside of this application
-    /// This forms the second bit of a layer number
-    /// </summary>
-    Mod2 = ushort.MaxValue - Layer.Layer3 + 1,
+    ModeToggle = Blocker - 1,
+    NonSystemKeyStart = ModeToggle,
+    Blocker = Mod3 - 1,
 
     /// <summary>
     /// Modifier key 3 - not to be used outside of this application
     /// This forms the third bit of a layer number
     /// </summary>
     Mod3 = ushort.MaxValue - Layer.Layer4 + 1,
+    
+    /// <summary>
+    /// Modifier key 2 - not to be used outside of this application
+    /// This forms the second bit of a layer number
+    /// </summary>
+    Mod2 = ushort.MaxValue - Layer.Layer3 + 1,
+    
+    /// <summary>
+    /// Modifier key 1 - not to be used outside of this application
+    /// This forms the first bit of a layer number
+    /// </summary>
+    Mod1 = ushort.MaxValue - Layer.Layer2 + 1,
+    
+    ModifierKeyMin = Mod3, ModifierKeyMax = Mod1,
 }

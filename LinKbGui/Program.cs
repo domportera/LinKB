@@ -1,9 +1,16 @@
 ﻿namespace LinKbGui;
 
-class Program
+internal static class Program
 {
-    static async Task Main(string[] args)
+    private static async Task Main(string[] args)
     {
-        await LinKb.Main.Run(args, new GuiApplication());
+        try
+        {
+            await LinKb.Main.Run(args, new GuiApplication());
+        }
+        catch (Exception ex)
+        {
+            await Console.Out.WriteAsync("Unhandled exception: " + ex);
+        }
     }
 }

@@ -22,7 +22,7 @@ internal class GuiApplication : IApplication
         if(_hooks is null || _grid is null)
             throw new InvalidOperationException("Application not initialized");
         
-        SilkWindowProvider.Initialize(false);
+        SilkWindowProvider.Initialize(!OperatingSystem.IsWindows());
         IImguiWindowProvider provider = new SilkWindowProvider();
         var drawer = new KeyboardConfigWindow(_grid, _hooks);
 

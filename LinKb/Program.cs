@@ -36,17 +36,19 @@ public static class Main
             return midiDeviceStatus;
         }
 
-        var grid = new MidiKeyboardGrid(gridDevice!, config, items.Simulator);
-        grid.ApplyAutoRepeatSettings(items.AutoRepeatDelay, items.AutoRepeatRate);
+        var keyHandler = new KeyHandler(items.InputEventProvider, items.Simulator);
+        keyHandler.ApplyAutoRepeatSettings(items.AutoRepeatDelay, items.AutoRepeatRate);
+        
+        var grid = new MidiKeyboardGrid(gridDevice!, config, keyHandler);
 
         application.Initialize(items.InputEventProvider, grid);
-        await Daemon.Run(grid, application);
-        Log.Info("Gui application exited");
+        await Daemon.Run(grid, keyHandler, application);
         grid.Dispose();
-        Log.Debug("Keyboard grid disposed");
 
         await KeySupport.End();
         await gridDevice!.CloseAsync();
+        
+        Log.Info("Application stopped");
 
         return ExitCodes.Success;
     }

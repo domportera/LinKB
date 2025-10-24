@@ -52,7 +52,7 @@ public partial class MidiKeyboardGrid
 #if STATS_DEBUG
                 ++eventsTriggered;
 #endif
-                OnPadPress(status.IsPressed, evt.ColX, evt.RowY);
+                OnPadPress(evt.ColX, evt.RowY, status.IsPressed);
             }
 
             // todo - events for other types of things like slides, etc
@@ -74,8 +74,6 @@ public partial class MidiKeyboardGrid
         }
 #endif
 
-        // todo - only call this when we need to
-        UpdateRepeats();
     }
 
     private void BeginReceiveThread()
@@ -97,6 +95,7 @@ public partial class MidiKeyboardGrid
             EventWaitHandle = _eventWaitHandle,
             // ReSharper disable once InconsistentlySynchronizedField
             MidiEventQueue = _midiEventQueue,
+            PadStatusEvents = _padStatusEvents,
             QueueLock = _queueLock,
             Controller = controller
         });
@@ -117,7 +116,7 @@ public partial class MidiKeyboardGrid
         }
     }
 
-    private void ParseMidi(object? obj)
+    private static void ParseMidi(object? obj)
     {
         var args = (ThreadArgs)obj!;
         var token = args.CancellationToken;
@@ -125,6 +124,7 @@ public partial class MidiKeyboardGrid
         var handles = new[] { token.WaitHandle, resetEvent.WaitHandle };
         var eventQueue = args.MidiEventQueue;
         var controller = args.Controller;
+        var padStatusEvents = args.PadStatusEvents;
         List<MidiEvent> midiEvents = [];
 
 #if DEBUG
@@ -177,7 +177,7 @@ public partial class MidiKeyboardGrid
                 {
                     if (controller.TryParseMidiEvent(midiEvents[i], out var padStatusEvent, out var error) && padStatusEvent != null)
                     {
-                        _padStatusEvents.Enqueue(padStatusEvent.Value);
+                        padStatusEvents.Enqueue(padStatusEvent.Value);
                         any = true;
                     }
                     else
@@ -246,6 +246,7 @@ public partial class MidiKeyboardGrid
         public required CancellationToken CancellationToken { get; init; }
         public required ManualResetEventSlim EventWaitHandle { get; init; }
         public required Queue<MidiEvent> MidiEventQueue { get; init; }
+        public required ConcurrentQueue<PadStatusEvent> PadStatusEvents { get; init; }
         public required Lock QueueLock { get; init; }
         public required IGridController Controller { get; init; }
     }

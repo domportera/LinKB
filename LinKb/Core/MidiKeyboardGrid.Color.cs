@@ -38,10 +38,7 @@ public partial class MidiKeyboardGrid
             return KeyColors.UnlitColor;
         }
 
-
-        var keyInt = (int)keycode;
-        var isPressed = _keyPressedTimesTicks[keyInt] != NotPressedTime;
-        if (isPressed)
+        if (_keyHandler.IsPressed(keycode))
         {
             return KeyColors.PressedColor;
         }

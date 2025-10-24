@@ -175,10 +175,14 @@ public partial class MidiKeyboardGrid
 
                 for (int i = 0; i < midiEvents.Count; ++i)
                 {
-                    if (controller.TryParseMidiEvent(midiEvents[i], out var padStatusEvent))
+                    if (controller.TryParseMidiEvent(midiEvents[i], out var padStatusEvent, out var error) && padStatusEvent != null)
                     {
                         _padStatusEvents.Enqueue(padStatusEvent.Value);
                         any = true;
+                    }
+                    else
+                    {
+                        Log.Warn(error);
                     }
                 }
 

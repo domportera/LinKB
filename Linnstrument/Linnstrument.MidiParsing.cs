@@ -9,7 +9,7 @@ public partial class Linnstrument
 {
     private sbyte[,] _xAxisValuesMsb = null!;
 
-    public bool TryParseMidiEvent(MidiEvent e, [NotNullWhen(true)] out PadStatusEvent? padStatusEvent)
+    public bool TryParseMidiEvent(MidiEvent e, out PadStatusEvent? padStatusEvent, [NotNullWhen(false)] out string? reason)
     {
         var row = e.Status.Channel;
 
@@ -19,13 +19,14 @@ public partial class Linnstrument
             {
                 var column = e.Data.B1 - 1;
                 padStatusEvent = new PadStatusEvent(column, row, PadAxis.Velocity, e.Data.B2);
+                reason = null;
                 return true;
             }
             case StatusType.NoteOff:
             {
                 var column = e.Data.B1 - 1;
-
                 padStatusEvent = new PadStatusEvent(column, row, PadAxis.Velocity, 0);
+                reason = null;
                 return true;
             }
             case StatusType.PolyKeyPressure:
@@ -34,6 +35,7 @@ public partial class Linnstrument
                 //var polyphonicPressure = new PolyphonicPressureMessage(e.Data.B1, e.Data.B2);
                 var column = e.Data.B1 - 1;
                 padStatusEvent = new PadStatusEvent(column, row, PadAxis.Z, e.Data.B2);
+                reason = null;
                 return true;
             }
             case StatusType.ControlChange:
@@ -45,23 +47,36 @@ public partial class Linnstrument
                     {
                         // X 14 bit MSB
                         var column = controlMessage.CCNumber - 1;
-
+                        if (!ValidatePosition(row, column, out reason))
+                        {
+                            padStatusEvent = null;
+                            return false;
+                        }
+                        
                         _xAxisValuesMsb[column, row] = (sbyte)controlMessage.Value;
                         padStatusEvent = null;
-                        return false;
+                        reason = null;
+                        return true;
                     }
                     case >= 32 and <= 57:
                     {
                         // X 14-bit LSB
                         const ushort maxReceivedValue = 4265;
-                        var perColumn = maxReceivedValue / _width;
+                        
                         var column = controlMessage.CCNumber - 32 - 1;
+                        if (!ValidatePosition(row, column, out reason))
+                        {
+                            padStatusEvent = null;
+                            return false;
+                        }
 
+                        var perColumn = maxReceivedValue / _width;
                         ref var msb = ref _xAxisValuesMsb[column, row];
                         if (msb == Uninitialized)
                         {
                             padStatusEvent = null;
-                            return false;
+                            reason = "MSB for X axis not yet received";
+                            return true;
                         }
 
                         var num = MidiParser.Value14Bit((byte)msb, controlMessage.Value);
@@ -79,12 +94,14 @@ public partial class Linnstrument
                         // y is 7 bit cc 64-89
                         var column = controlMessage.CCNumber - 64 - 1;
                         padStatusEvent = new PadStatusEvent(column, row, PadAxis.Y, controlMessage.Value);
+                        reason = null;
                         return true;
                     }
                     default:
                     {
                         padStatusEvent = null;
-                        return false;
+                        reason = null;
+                        return true;
                     }
                 }
             }
@@ -93,7 +110,26 @@ public partial class Linnstrument
             case StatusType.ProgramChange:
             default:
                 padStatusEvent = null;
+                reason = null;
+                return true;
+        }
+
+        bool ValidatePosition(int rowY, int columnX, [NotNullWhen(false)] out string? reason)
+        {
+            if (rowY >= _height)
+            {
+                reason = $"Row {rowY} is out of bounds of height {_height}";
                 return false;
+            }
+
+            if (columnX >= _width)
+            {
+                reason = $"Column {columnX} is out of bounds of width {_width}";
+                return false;
+            }
+
+            reason = null;
+            return true;
         }
     }
 }

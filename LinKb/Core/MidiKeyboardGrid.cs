@@ -52,11 +52,12 @@ public partial class MidiKeyboardGrid
         _ledHandler.PushLEDs();
     }
 
-
     #endregion Public
 
     internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
     internal int RepeatRateMs { get; private set; } = DefaultAutoRepeatRateMs;
+    private readonly int[] _keyTracker = new int[Enum.GetValues<KeyCode>().Length];
+
 
     internal MidiKeyboardGrid(MidiDevice device, KeyboardGridConfig config, IEventSimulator eventSimulator)
     {
@@ -157,24 +158,36 @@ public partial class MidiKeyboardGrid
             return;
         }
 
+        // manage key state
         var keycode = _config.GetKey(keyX, keyY, Layer, out var foundLayer);
+        var keycodeInt = (int)keycode;
         Log.Debug(
             $"Key {(pressed ? "Pressed" : "Released")}: {KeyInfo.ToName[keycode]} at ({keyX},{keyY}) on {Layer} from {foundLayer}");
-        var currentKeyPressTime = _keyPressedTimesTicks[(int)keycode];
-        var wasPressed = currentKeyPressTime != NotPressedTime;
-        if (pressed != wasPressed)
+        ref var pressCount = ref _pressCounts[keycodeInt]; // handle multiple pads mapped to the same key
+        var wasPressed = pressCount > 0;
+        if (pressed != wasPressed && keycode != KeyCode.Undefined)
         {
+            // todo - abstract this key information into virtual input devices that can be hooked up to this grid
+            var shouldRaiseEvent = false;
             if (pressed)
             {
-                _keyPressedTimesTicks[(int)keycode] = _stopwatch.ElapsedTicks;
+                if (++pressCount == 1)
+                {
+                    _keyPressedTimesTicks[keycodeInt] = _stopwatch.ElapsedTicks;
+                    shouldRaiseEvent = true;
+                }
             }
-            else
+            else if (!pressed)
             {
-                _keyPressedTimesTicks[(int)keycode] = NotPressedTime;
-                _repeatsSent[(int)keycode] = 0;
+                if (--pressCount == 0)
+                {
+                    _keyPressedTimesTicks[keycodeInt] = NotPressedTime;
+                    _repeatsSent[keycodeInt] = 0;
+                    shouldRaiseEvent = true;
+                }
             }
 
-            if (keycode is not KeyCode.Undefined)
+            if (shouldRaiseEvent)
             {
                 RaiseKeyEvent(keycode, pressed, _ledHandler, ref _layer, _keyPressedTimesTicks, _repeatsSent,
                     _eventSimulator, _config);
@@ -304,6 +317,7 @@ public partial class MidiKeyboardGrid
     private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000d;
     private readonly ulong[] _repeatsSent = new ulong[ushort.MaxValue + 1];
     private readonly long[] _keyPressedTimesTicks = new long[ushort.MaxValue + 1];
+    private readonly int[] _pressCounts = new int[ushort.MaxValue + 1];
     private const long NotPressedTime = 0;
 
     private Layer _layer;

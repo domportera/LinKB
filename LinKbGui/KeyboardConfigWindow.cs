@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using ImGuiNET;
 using ImGuiWindows;
@@ -32,6 +33,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
     private readonly IEventProvider _hooks;
     private readonly Dictionary<KeyCode, bool> _pressedKeys = [];
     private readonly Lock _keyLock = new();
+    
+    #if DEBUG
+    private readonly Stopwatch _stopwatch = new();
+    private long _lastFrameTicks = long.MaxValue;
+    #endif
 
     public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, IEventProvider hooks)
     {
@@ -69,6 +75,12 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
     public unsafe void OnRender(string windowName, double deltaSeconds, ImFonts fonts, float dpiScale)
     {
+        #if DEBUG
+        var ticks = _lastFrameTicks;
+        var ms = ticks / (Stopwatch.Frequency / 1000.0);
+        _stopwatch.Restart();
+        #endif
+        
         // render the grid config ui
         var kbWidth = _keyboardGrid.Width;
         var kbHeight = _keyboardGrid.Height;
@@ -108,6 +120,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         SameLineSeparator();
         DrawPressedKeys(pressedKeys);
+        
+        #if DEBUG
+        SameLineSeparator();
+        ImGui.Text($"Frame time: {ms}ms");
+        #endif
 
         ImGui.Separator();
 
@@ -151,7 +168,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
                         size: new Vector2(-1, perCellHeight),
                         col: col,
                         row: row,
-                        depressedKey: consumedKey
+                        pressedKey: consumedKey
                             ? null
                             : pressedKey,
                         hasConsumed: out var hasConsumed);
@@ -174,6 +191,9 @@ internal class KeyboardConfigWindow : IImguiDrawer
             }
         }
 
+        #if DEBUG
+        _lastFrameTicks = _stopwatch.ElapsedTicks;
+        #endif
         return;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -257,23 +277,24 @@ internal class KeyboardConfigWindow : IImguiDrawer
     }
 
     private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, Vector2 size, int col, int row,
-        KeyCode? depressedKey, 
-        out bool hasConsumed)
+        KeyCode? pressedKey, out bool hasConsumed)
     {
         hasConsumed = false;
         var currentKey = grid.GetKey(col, row, out var foundLayer, layer);
-        var isKeyPressed = grid.IsPadPressed(col, row);
+        var isPadPressed = grid.IsPadPressed(col, row);
 
         var keyOnCurrentLayer = foundLayer == layer;
-        
+
         // get color based on key
         var color = grid.GetColorVector(col, row);
         const float brightness = 0.4f;
         color *= brightness;
         color.W = 1;
-        
 
-        if (isKeyPressed)
+        var axes = grid.GetAxes(col, row);
+        DrawTouchDetails(size, axes, color);
+
+        if (isPadPressed)
         {
             // highlight the cell if the key is currently pressed
             color = new Vector4(0f, 1f, 0f, keyOnCurrentLayer ? 0.5f : 0.2f);
@@ -328,12 +349,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         if (ImGui.BeginPopupContextItem(selectionMenuLabel))
         {
-            if (depressedKey != null)
+            if (pressedKey != null)
             {
-                var key = depressedKey.Value == KeyCode.Escape ? KeyCode.Undefined : depressedKey.Value;
+                var key = pressedKey.Value == KeyCode.Escape ? KeyCode.Undefined : pressedKey.Value;
                 if (grid.TrySetKey(col, row, layer, key, out var reason))
                 {
-                    grid.UpdateLED(col, row);
                     hasConsumed = true;
                     ImGui.CloseCurrentPopup();
                 }
@@ -356,11 +376,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
                     var isSelected = currentKey == key;
                     if (ImGui.Selectable(name, isSelected, selectableFlags))
                     {
-                        if (grid.TrySetKey(col, row, layer, key, out var reason))
-                        {
-                            grid.UpdateLED(col, row);
-                        }
-                        else
+                        if (!grid.TrySetKey(col, row, layer, key, out var reason))
                         {
                             HandleFailedKeyAssignment(key, reason);
                         }
@@ -378,6 +394,64 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         ImGui.PopStyleColor();
         ImGui.PopStyleColor();
+    }
+
+    private static void DrawTouchDetails(in Vector2 size, in Vector3 axes, in Vector4 color)
+    {
+        if (axes == PadStatusExtensions.DefaultAxisValue)
+            return;
+        
+        var cellPadding = ImGui.GetStyle().CellPadding;
+        var margin = ImGui.GetStyle().ItemInnerSpacing;
+        var totalCellPadding = cellPadding * 2;
+        // draw a point on normalized xy pos inside cell,
+        // with z determining the size of the point
+        var cursorPos = ImGui.GetCursorPos() + cellPadding with {Y = cellPadding.Y + margin.Y };
+        var actualSize = new Vector2(
+            x: ImGui.GetContentRegionAvail().X + totalCellPadding.X, 
+            y: size.Y + totalCellPadding.Y);
+            
+        var touchPos = new Vector2(axes.X, axes.Y);
+        var sizeIndicatorColor = new Vector4(1, 1, 1, 0.2f);
+
+        // draw pressure indicator
+        var halfSize = actualSize * 0.5f;
+        var sqRtZ = MathF.Sqrt(axes.Z);
+        var outSet = halfSize * sqRtZ - cellPadding;
+        var center = cursorPos + halfSize;
+        ImGui.GetForegroundDrawList().AddRectFilled(
+            p_min: center - outSet,
+            p_max: center + outSet,
+            col: ImGui.ColorConvertFloat4ToU32(sizeIndicatorColor),
+            rounding: 0f
+        );
+            
+        // draw x/y crosshair
+        var positionIndicatorOffset = new Vector2(actualSize.X * touchPos.X, actualSize.Y * (1 - touchPos.Y));
+        var actualPos = cursorPos + positionIndicatorOffset;
+        var crosshairColor = new Vector4(1, 0, 0, color.W);
+        
+        // ReSharper disable once CompareOfFloatsByEqualityOperator
+        if (axes.X != PadStatusExtensions.DefaultAxisValue.X)
+        {
+            // vertical line, X value
+            ImGui.GetForegroundDrawList().AddLine(
+                p1: actualPos with { Y = cursorPos.Y },
+                p2: actualPos with { Y = cursorPos.Y + actualSize.Y },
+                col: ImGui.ColorConvertFloat4ToU32(crosshairColor),
+                thickness: 1);
+        }
+
+        // ReSharper disable once CompareOfFloatsByEqualityOperator
+        if (axes.Y != PadStatusExtensions.DefaultAxisValue.Y)
+        {
+            // horizontal line, Y value
+            ImGui.GetForegroundDrawList().AddLine(
+                p1: actualPos with { X = cursorPos.X },
+                p2: actualPos with { X = cursorPos.X + actualSize.X },
+                col: ImGui.ColorConvertFloat4ToU32(crosshairColor),
+                thickness: 1);
+        }
     }
 
     private static void HandleFailedKeyAssignment(KeyCode key, string reason) => Log.Error(reason);

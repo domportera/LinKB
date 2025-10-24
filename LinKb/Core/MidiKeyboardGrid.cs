@@ -3,27 +3,47 @@ using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using InputHooks;
 using LinKb.Configuration;
-using LinKb.Keys;
 using Midi.Net;
-using Midi.Net.MidiUtilityStructs;
-using Midi.Net.MidiUtilityStructs.Enums;
 
 namespace LinKb.Core;
 
-public class MidiKeyboardGrid
+public partial class MidiKeyboardGrid
 {
+    #region Public
+
     public int Width => _config.Width;
     public int Height => _config.Height;
     public Layer Layer => _layer;
 
     public bool EnableKeyEvents = true;
-    public bool IsPadPressed(int x, int y) => _padStates[x, y];
-    public bool IsKeyPressed(KeyCode key) => _keyPressedTimes[(int)key] != NotPressedTime;
-    public KeyCode GetKey(int x, int y, out Layer foundLayer, Layer? layer = null) => _config.GetKey(x, y, layer ?? Layer, out foundLayer);
-    public ReadOnlySpan3D<KeyCode> Keymap => _config.Keymap;
-    internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
+    public bool IsPadPressed(int x, int y) => _pads[x, y].IsPressed;
+    public bool IsKeyPressed(KeyCode key) => _keyPressedTimesTicks[(int)key] != NotPressedTime;
 
-    public void UpdateLED(int col, int row)
+    public KeyCode GetKey(int x, int y, out Layer foundLayer, Layer? layer = null) =>
+        _config.GetKey(x, y, layer ?? Layer, out foundLayer);
+
+    public Vector3 GetAxes(int col, int row) => _pads[col, row].Axes;
+
+    public ReadOnlySpan3D<KeyCode> Keymap => _config.Keymap;
+
+    public bool TrySetKey(int col, int row, Layer layer, KeyCode key, [NotNullWhen(false)] out string? reason)
+    {
+        if (_config.SetKey(col, row, layer, key, out reason))
+        {
+            UpdateLED(col, row);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void ApplyKeymap(ReadOnlySpan3D<KeyCode> loaded)
+    {
+        _config.SetKeymap(0, loaded);
+        _ledHandler?.UpdateAndPushAll(_config.Width, _config.Height);
+    }
+
+    private void UpdateLED(int col, int row)
     {
         if (_ledHandler == null)
             return;
@@ -33,87 +53,38 @@ public class MidiKeyboardGrid
     }
 
 
+    #endregion Public
+
+    internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
+    internal int RepeatRateMs { get; private set; } = DefaultAutoRepeatRateMs;
+
     internal MidiKeyboardGrid(MidiDevice device, KeyboardGridConfig config, IEventSimulator eventSimulator)
     {
+        // todo - get device connection/reconnection delegates that return midi device instead 
+        // of providing it via the constructor, that way we can maintain the same grid object throughout disconnects?
+        // or, create a way to create new grids throughout the lifetime of the application
+        if (device is not IGridController)
+        {
+            throw new ArgumentException("Midi device must implement IGridController");
+        }
+
         _stopwatch = new Stopwatch();
         _stopwatch.Start();
-        _padStates = new bool[config.Width, config.Height];
-        _pads = new PadStatus[config.Width, config.Height]; // 1-based indexing for pads
+
+        _pads = new PadStatus[config.Width, config.Height];
+        _pads.InitializeAsDefault();
+
         _config = config;
         _eventSimulator = eventSimulator;
         _device = device;
         if (device is ILEDGrid ledGrid)
         {
             _ledHandler = new LEDHandler(ledGrid, GetColor);
-
             _ledHandler.UpdateAndPushAll(_config.Width, _config.Height);
         }
 
-        _device.MidiReceived += OnMidiReceived;
+        BeginReceiveThread();
     }
-
-    public Vector4 GetColorVector(int col, int row)
-    {
-        var color = GetColor(col, row, Layer);
-        
-        return color switch 
-        {
-            LedColor.Off => Vector4.Zero,
-            LedColor.Red => new Vector4(1f, 0f, 0f, 1f),
-            LedColor.Blue => new Vector4(0f, 0f, 1f, 1f),
-            LedColor.Green => new Vector4(0f, 1f, 0f, 1f),
-            LedColor.Yellow => new Vector4(1f, 1f, 0f, 1f),
-            LedColor.White => new Vector4(1f, 1f, 1f, 1f),
-            LedColor.Cyan => new Vector4(0f, 1f, 1f, 1f),
-            LedColor.Magenta => new Vector4(1f, 0f, 1f, 1f),
-            LedColor.Default => new  Vector4(0.5f, 0.5f, 0.5f, 1f),
-            LedColor.Orange => new Vector4(1f, 0.5f, 0f, 1f),
-            LedColor.Lime => new Vector4(0.75f, 1f, 0f, 1f),
-            LedColor.Pink => new Vector4(1f, 0.75f, 0.8f, 1f),
-            _ => throw new ArgumentOutOfRangeException()
-        };
-    }
-    private LedColor GetColor(int col, int row) => GetColor(col, row, Layer);
-    private LedColor GetColor(int x, int y, Layer layer)
-    {
-        var keycode = _config.GetKey(x, y, layer, out _);
-        if (keycode is KeyCode.Undefined or KeyCode.Blocker)
-        {
-            return KeyColors.UnlitColor;
-        }
-
-
-        var keyInt = (int)keycode;
-        var isPressed = _keyPressedTimes[keyInt] != NotPressedTime;
-        if (isPressed)
-        {
-            return KeyColors.PressedColor;
-        }
-
-        if (keycode >= KeyCode.ModifierKeyMin) return KeyColors.ModKeyColor;
-
-        if (keycode is KeyCode.F or KeyCode.J)
-        {
-            return KeyColors.HomeKeyColor;
-        }
-
-        if (keycode is KeyCode.CapsLock or KeyCode.NumLock or KeyCode.ScrollLock)
-        {
-            // todo - get actual lock status and color accordingly
-            return KeyColors.LockedColor;
-        }
-
-        if (keycode.IsLetter())
-        {
-            return KeyColors.LitColor;
-        }
-
-        if (keycode.IsNumber())
-            return KeyColors.NumberColor;
-
-        return keycode.IsSymbol() ? KeyColors.SymbolColor : KeyColors.SpecialLitColor;
-    }
-
 
     internal void ApplyAutoRepeatSettings(int? repeatDelay, int? repeatRate)
     {
@@ -131,7 +102,7 @@ public class MidiKeyboardGrid
         }
     }
 
-    internal void UpdateRepeats()
+    private void UpdateRepeats()
     {
         // check key times and simulate repeats as needed
         var nowTicks = _stopwatch.ElapsedTicks;
@@ -141,14 +112,14 @@ public class MidiKeyboardGrid
         var maxIdx = (int)KeyCode.NonSystemKeyStart;
         for (var i = 0; i < maxIdx; i++)
         {
-            var pressTime = _keyPressedTimes[i];
+            var pressTime = _keyPressedTimesTicks[i];
             if (pressTime == NotPressedTime)
                 continue;
             var elapsed = nowTicks - pressTime;
             if (elapsed < autoRepeatDelayTicksSigned)
                 continue;
 
-            ref var repeatsSent = ref _repeatsSent[i];
+            var repeatsSent = _repeatsSent[i];
             bool shouldRepeat;
 
             unchecked
@@ -156,7 +127,7 @@ public class MidiKeyboardGrid
                 // if we have not repeated OR (firstRepeatTime) / repeatRate > repeatsSent
                 if (repeatsSent == 0 || ((ulong)elapsed - _autoRepeatDelayTicks) / _autoRepeatRateTicks > repeatsSent)
                 {
-                    ++repeatsSent;
+                    ++_repeatsSent[i];
                     shouldRepeat = true;
                 }
                 else
@@ -178,178 +149,133 @@ public class MidiKeyboardGrid
         GC.SuppressFinalize(this);
     }
 
-    private void OnMidiReceived(object? sender, MidiEvent e)
+    private void OnPadPress(bool pressed, int keyX, int keyY)
     {
-        // Handle MIDI event
-        var channel = e.Status.Channel;
-        if (e.IsNoteOn)
-        {
-            var x = e.Data.B1 - 1;
-            var velocity = e.Data.B2;
-            ApplyKeyValues(x, channel, true, velocity);
-        }
-        else if (e.IsNoteOff)
-        {
-            var x = e.Data.B1 - 1;
-            var velocity = e.Data.B2;
-            ApplyKeyValues(x, channel, false, velocity);
-        }
-        else if (e.Status.Type == StatusType.ControlChange)
-        {
-            // Handle Control Change messages if needed
-            Log.Info($"Control Change: Controller {e.Data.B1}, Value {e.Data.B2}");
-        }
-        else
-        {
-            // Other MIDI events can be handled here
-            Log.Info(e);
-        }
-    }
-
-    private void ApplyKeyValues(int x, int y, bool pressed, int velocity)
-    {
-        ref var pad = ref GetPad(x, y);
-        if (pad.IsPressed != pressed)
-        {
-            OnKeyPressed(pressed, x, y);
-        }
-
-        pad.IsPressed = pressed;
-        pad.Velocity = velocity;
-    }
-
-    private void OnKeyPressed(bool pressed, int keyX, int keyY)
-    {
-        ref var padState = ref _padStates[keyX, keyY];
-        if (padState == pressed)
-            return;
-
-        padState = pressed;
-
         if (!EnableKeyEvents)
         {
-            if (_ledHandler is not null)
-            {
-                _ledHandler.UpdateButtonState(keyX, keyY);
-                _ledHandler.PushLEDs();
-            }
-
+            PushLED(keyX, keyY);
             return;
         }
 
         var keycode = _config.GetKey(keyX, keyY, Layer, out var foundLayer);
         Log.Debug(
             $"Key {(pressed ? "Pressed" : "Released")}: {KeyInfo.ToName[keycode]} at ({keyX},{keyY}) on {Layer} from {foundLayer}");
-        ref var currentKeyPressTime = ref _keyPressedTimes[(int)keycode];
+        var currentKeyPressTime = _keyPressedTimesTicks[(int)keycode];
         var wasPressed = currentKeyPressTime != NotPressedTime;
         if (pressed != wasPressed)
         {
             if (pressed)
             {
-                currentKeyPressTime = _stopwatch.ElapsedTicks;
+                _keyPressedTimesTicks[(int)keycode] = _stopwatch.ElapsedTicks;
             }
             else
             {
-                currentKeyPressTime = NotPressedTime;
+                _keyPressedTimesTicks[(int)keycode] = NotPressedTime;
                 _repeatsSent[(int)keycode] = 0;
             }
 
             if (keycode is not KeyCode.Undefined)
             {
-                RaiseKeyEvent(keycode, pressed, _ledHandler, ref _layer, _keyPressedTimes, _repeatsSent,
+                RaiseKeyEvent(keycode, pressed, _ledHandler, ref _layer, _keyPressedTimesTicks, _repeatsSent,
                     _eventSimulator, _config);
             }
         }
 
-        if (_ledHandler is not null)
-        {
-            _ledHandler.UpdateButtonState(keyX, keyY);
-            _ledHandler.PushLEDs();
-        }
+        PushLED(keyX, keyY);
 
         return;
 
-        static void RaiseKeyEvent(KeyCode kc, bool isPress, LEDHandler? leds, ref Layer currentLayer,
-            long[] keyPressedState, ulong[] repeatCounts, IEventSimulator eventSimulator, KeyboardGridConfig config)
+        void PushLED(int i, int keyY1)
         {
-            // non-modifier keys
-            if (kc < KeyCode.NonSystemKeyStart)
-            {
-                if (isPress)
-                {
-                    eventSimulator.SimulateKeyDown(kc);
-                }
-                else
-                {
-                    eventSimulator.SimulateKeyUp(kc);
-                }
+            if (_ledHandler is null) return;
 
-                return;
+            _ledHandler.UpdateButtonState(i, keyY1);
+            _ledHandler.PushLEDs();
+        }
+    }
+
+    private static void RaiseKeyEvent(KeyCode kc, bool isPress, LEDHandler? leds, ref Layer currentLayer,
+        long[] keyPressedTimesTicks, ulong[] repeatCounts, IEventSimulator eventSimulator, KeyboardGridConfig config)
+    {
+        // non-modifier keys
+        if (kc < KeyCode.NonSystemKeyStart)
+        {
+            if (isPress)
+            {
+                eventSimulator.SimulateKeyDown(kc);
+            }
+            else
+            {
+                eventSimulator.SimulateKeyUp(kc);
             }
 
-            if (kc < KeyCode.ModifierKeyMin)
-                return;
+            return;
+        }
 
-            var previousLayer = currentLayer;
+        if (kc < KeyCode.ModifierKeyMin)
+            return;
 
-            // get new modifier state
-            var mod1 = keyPressedState[(int)KeyCode.Mod1] != NotPressedTime;
-            var mod2 = keyPressedState[(int)KeyCode.Mod2] != NotPressedTime;
-            var mod3 = keyPressedState[(int)KeyCode.Mod3] != NotPressedTime;
-            var newLayer = Layer.Layer1;
-            if (mod1)
-                newLayer |= Layer.Layer2;
-            if (mod2)
-                newLayer |= Layer.Layer3;
-            if (mod3)
-                newLayer |= Layer.Layer4;
+        var previousLayer = currentLayer;
 
-            if (previousLayer == newLayer)
+        // get new modifier state
+        // todo - more normal way to get the mod keys - whats the "standardized" way to do this?
+        var mod1 = keyPressedTimesTicks[(int)KeyCode.Mod1] != NotPressedTime;
+        var mod2 = keyPressedTimesTicks[(int)KeyCode.Mod2] != NotPressedTime;
+        var mod3 = keyPressedTimesTicks[(int)KeyCode.Mod3] != NotPressedTime;
+        var newLayer = Layer.Layer1;
+        if (mod1)
+            newLayer |= Layer.Layer2;
+        if (mod2)
+            newLayer |= Layer.Layer3;
+        if (mod3)
+            newLayer |= Layer.Layer4;
+
+        if (previousLayer == newLayer)
+        {
+            return; // no change in layer
+        }
+
+        currentLayer = newLayer;
+
+        Log.Debug("Layer changed to " + currentLayer);
+
+        // release keys that have been switched via layer change
+        // make sure to ignore the modifier keys themselves
+        // also update LED
+        var width = config.Width;
+        var height = config.Height;
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
             {
-                return; // no change in layer
-            }
+                var newLayerKey = config.GetKey(x, y, newLayer, out _);
+                if (newLayer > previousLayer &&
+                    newLayerKey == KeyCode.Undefined) // no layers have a key for this pad
+                    continue;
 
-            currentLayer = newLayer;
+                var prevLayerKey = config.GetKey(x, y, previousLayer, out _);
+                if (prevLayerKey == newLayerKey) // ignore the keys that match that of the new layer
+                    continue;
 
-            Log.Debug("Layer changed to " + currentLayer);
 
-            // release keys that have been switched via layer change
-            // make sure to ignore the modifier keys themselves
-            // also update LED
-            var width = config.Width;
-            var height = config.Height;
-
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
+                var prevLayerKeyInt = (int)prevLayerKey;
+                var isPreviousKeyPressed = keyPressedTimesTicks[prevLayerKeyInt];
+                if (isPreviousKeyPressed == NotPressedTime)
                 {
-                    var newLayerKey = config.GetKey(x, y, newLayer, out _);
-                    if (newLayer > previousLayer &&
-                        newLayerKey == KeyCode.Undefined) // no layers have a key for this pad
-                        continue;
-
-                    var prevLayerKey = config.GetKey(x, y, previousLayer, out _);
-                    if (prevLayerKey == newLayerKey) // ignore the keys that match that of the new layer
-                        continue;
-
-
-                    ref var isPreviousKeyPressed = ref keyPressedState[(int)prevLayerKey];
-                    if (isPreviousKeyPressed == NotPressedTime)
-                    {
-                        // update the LED state for this key
-                        leds?.UpdateButtonState(x, y);
-                        continue;
-                    }
-
-                    // release the key
-                    isPreviousKeyPressed = NotPressedTime;
-                    repeatCounts[(int)prevLayerKey] = 0;
-                    eventSimulator.SimulateKeyUp(prevLayerKey);
-
                     // update the LED state for this key
                     leds?.UpdateButtonState(x, y);
-                    Log.Info($"Key {prevLayerKey} released due to layer change");
+                    continue;
                 }
+
+                // release the key
+                keyPressedTimesTicks[prevLayerKeyInt] = NotPressedTime;
+                repeatCounts[prevLayerKeyInt] = 0;
+                eventSimulator.SimulateKeyUp(prevLayerKey);
+
+                // update the LED state for this key
+                leds?.UpdateButtonState(x, y);
+                Log.Info($"Key {prevLayerKey} released due to layer change");
             }
         }
     }
@@ -358,6 +284,8 @@ public class MidiKeyboardGrid
     private void Dispose(bool _)
     {
         _device.MidiReceived -= OnMidiReceived;
+        _cancellationTokenSource.CancelAsync().Wait();
+        _eventWaitHandle.Dispose();
     }
 
     ~MidiKeyboardGrid()
@@ -365,33 +293,23 @@ public class MidiKeyboardGrid
         Dispose(false);
     }
 
-    private ref PadStatus GetPad(int x, int y) => ref _pads[x, y];
+    // todo - this should be what returns from the midi event abstraction
+    // when the logic is moved to the Linnstrument project
     private readonly PadStatus[,] _pads;
-
-
-    internal int RepeatRateMs { get; private set; } = DefaultAutoRepeatRateMs;
     private const int DefaultAutoRepeatDelayMs = 500;
     private const int DefaultAutoRepeatRateMs = 33;
     private ulong _autoRepeatDelayTicks = (ulong)(DefaultAutoRepeatDelayMs * TicksPerMillisecond);
     private ulong _autoRepeatRateTicks = (ulong)(DefaultAutoRepeatRateMs * TicksPerMillisecond);
 
     private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000d;
-    private ulong[] _repeatsSent = new ulong[ushort.MaxValue + 1];
+    private readonly ulong[] _repeatsSent = new ulong[ushort.MaxValue + 1];
+    private readonly long[] _keyPressedTimesTicks = new long[ushort.MaxValue + 1];
     private const long NotPressedTime = 0;
 
     private Layer _layer;
     private readonly LEDHandler? _ledHandler;
-    private readonly bool[,] _padStates;
     private readonly KeyboardGridConfig _config;
     private readonly IEventSimulator _eventSimulator;
     private readonly MidiDevice _device;
-    private readonly long[] _keyPressedTimes = new long[ushort.MaxValue + 1];
     private readonly Stopwatch _stopwatch;
-
-    public bool TrySetKey(int col, int row, Layer layer, KeyCode key, [NotNullWhen(false)] out string? reason) => _config.SetKey(col, row, layer, key, out reason);
-
-    public void ApplyKeymap(ReadOnlySpan3D<KeyCode> loaded)
-    {
-        _config.SetKeymap(0, loaded);
-    }
 }

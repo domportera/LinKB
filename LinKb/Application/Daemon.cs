@@ -6,7 +6,7 @@ namespace LinKb.Application;
 #pragma warning disable CA1859
 internal class Daemon
 {
-    private static readonly AutoResetEvent RepeatEvent = new(false);
+    internal static readonly AutoResetEvent InputTrigger = new(false);
 
     public static Task Run(MidiKeyboardGrid grid, IApplication app)
     {
@@ -16,8 +16,8 @@ internal class Daemon
         while (appTask is { IsCompleted: false, IsFaulted: false, IsCanceled: false, IsCompletedSuccessfully: false })
         {
             // simulate key updates
-            RepeatEvent.WaitOne(waitTime);
-            grid.UpdateRepeats();
+            InputTrigger.WaitOne(waitTime);
+            grid.ProcessEventQueue();
         }
         
         Log.Debug("Application stopped");

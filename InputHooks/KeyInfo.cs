@@ -12,7 +12,7 @@ public static class KeyInfo
 
     static KeyInfo()
     {
-        AllKeys = Enum.GetValues<KeyCode>().OrderBy(x => (int)x).ToArray();
+        AllKeys = Enum.GetValues<KeyCode>().OrderBy(x => (int)x).DistinctBy(x => (int)x).ToArray();
         var dict = AllKeys
             .ToDictionary(k => k, k =>
             {

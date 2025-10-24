@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using InputHooks;
 using LinKb.Core;
-using LinKb.Keys;
 
 namespace LinKb.Configuration;
 

@@ -58,7 +58,7 @@ internal class ConsoleApplication : IApplication
             {
                 var key = grid.GetKey(x, y, out var layer);
                 var color = LayerColors[(int)layer];
-                int posX, posY;
+                //int posX, posY;
                 Console.ForegroundColor = color;
                 Console.Write(key.ToString());
                 Console.ResetColor();

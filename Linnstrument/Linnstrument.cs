@@ -1,11 +1,41 @@
-﻿using Midi.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+using Midi.Net;
 using Midi.Net.MidiUtilityStructs;
 using Midi.Net.MidiUtilityStructs.Enums;
 
 namespace Linn;
 
-public class Linnstrument : MidiDevice, ILEDGrid
+public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
 {
+    private int _width, _height;
+    private const sbyte Uninitialized = sbyte.MinValue;
+
+    public void Initialize(int width, int height)
+    {
+        _width = width;
+        _height = height;
+        _xAxisValuesMsb = new sbyte[width, height];
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                _xAxisValuesMsb[x, y] = Uninitialized;
+            }
+        }
+    }
+
+    protected override async Task<(bool Success, string? Error)> OnClose()
+    {
+        var success = TryApplyUserFirmwareMode(false);
+        if (success)
+        {
+            await Task.Delay(200); // dummy wait since we're not actually waiting for device response yet
+            return (true, null);
+        }
+
+        return (false, "Failed to unset user firmware mode");
+    }
+    
     /// <summary>
     /// <a href="https://github.com/rogerlinndesign/linnstrument-firmware/blob/master/user_firmware_mode.txt">
     /// See documentation</a>
@@ -28,14 +58,38 @@ public class Linnstrument : MidiDevice, ILEDGrid
             new ControlChangeMessage((ControlChange)20, (byte)(x + 1)), // column
             new ControlChangeMessage((ControlChange)21, (byte)y), // row
             new ControlChangeMessage((ControlChange)22,
-                Value: color == LedColor.Off
+                value: color == LedColor.Off
                     ? (byte)7
                     : (byte)color) // color
         );
     }
 
-    void ILEDGrid.PushLEDs() => PushMidi();
+    public void RequestAxes(LinnstrumentAxis linnstrumentAxes, int row = -1, Channel channel = Channel.Channel1To8)
+    {
+        if (row != -1)
+            throw new NotImplementedException();
 
+        for(int a = 0; a < 3; a++)
+        {
+            var axis = (LinnstrumentAxis)(1 << a);
+            var enabled = (linnstrumentAxes & axis) != 0;
+            var value = (byte)(enabled ? 1 : 0);
+            var cc = (ControlChange)(10 + a);
+            for (int c = 0; c < 16; c++)
+            {
+                var currentChannel = (Channel)(1 << c);
+                var channelIsActive = (currentChannel & channel) != 0;
+                if (channelIsActive)
+                {
+                    CommitCC(c, new ControlChangeMessage(cc, value));
+                }
+            }
+        }
+        
+        PushMidi();
+    }
+
+    void ILEDGrid.PushLEDs() => PushMidi();
 
     // notes:
     // NRPN 245    Enabling/disabling User Firmware mode (0: disable, 1: enable)

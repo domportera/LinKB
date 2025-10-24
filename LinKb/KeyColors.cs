@@ -1,6 +1,6 @@
 ﻿using Midi.Net;
 
-namespace LinKb.Keys;
+namespace LinKb;
 
 [Serializable]
 public record KeyColors

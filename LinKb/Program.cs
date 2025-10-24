@@ -46,61 +46,37 @@ public static class Main
         Log.Debug("Keyboard grid disposed");
 
         await KeySupport.End();
-
-        if (await TryCloseLinnstrument(gridDevice!))
-        {
-            Log.Info("Linnstrument closed");
-        }
-        else
-        {
-            Log.Error("Failed to close Linnstrument properly");
-        }
+        await gridDevice!.CloseAsync();
 
         return ExitCodes.Success;
     }
 
-    private static async Task<bool> TryCloseLinnstrument(Linnstrument linnstrument)
-    {
-        var success = linnstrument.TryApplyUserFirmwareMode(false);
-        if (success)
-        {
-            await Task.Delay(200); // dummy wait since we're not actually waiting for device response yet
-        }
-        else
-        {
-            Log.Error("Failed to unset user firmware mode");
-        }
 
-        linnstrument.Dispose();
-        return success;
-    }
-
-    private static async Task<(Linnstrument? linnstrument, ExitCodes failedToOpenDevice)> TryOpenLinnstrument()
+    private static async Task<(MidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenLinnstrument()
     {
         const string deviceSearchTerm = "linnstrument";
-        var linnstrumentResult = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
-        if (linnstrumentResult.Info != DeviceHandler.DeviceOpenResult.Success)
+        var (result, linnstrument) = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
+        
+        if (result != DeviceHandler.DeviceOpenResult.Success)
         {
-            Log.Info("Failed to open MIDI device: " + linnstrumentResult.Info);
+            Log.Info("Failed to open MIDI device: " + result);
             return (null, ExitCodes.FailedToOpenDevice);
         }
 
-        var linnstrument = linnstrumentResult.Device;
         if (linnstrument is null)
         {
             Log.Info("Failed to open MIDI device");
         }
 
-        if (linnstrument is null || !linnstrument.TryApplyUserFirmwareMode(true))
+        if (linnstrument is null)
         {
-            linnstrument?.Dispose();
             return (null, ExitCodes.FailedToOpenDevice);
         }
 
         Log.Info("Opened MIDI device " + linnstrument.Name);
 
-        // give the device some time to process its connection state
-        await Task.Delay(1000);
+      
+        linnstrument.Initialize(25, 8);
 
         if (!linnstrument.TryApplyUserFirmwareMode(true))
         {
@@ -108,8 +84,10 @@ public static class Main
             linnstrument.Dispose();
             return (null, ExitCodes.FailedToApplyUserFirmwareMode);
         }
+        
+        linnstrument.RequestAxes(LinnstrumentAxis.All);
 
-        return (linnstrument, ExitCodes.Success);
+        return (linnstrument: linnstrument, ExitCodes.Success);
     }
 }
 

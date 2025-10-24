@@ -1,7 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using InputHooks;
+using LinKb.Core;
 
-namespace LinKb.Core;
+namespace LinKb.Configuration;
 
 public static class KeyboardGridExtensions
 {

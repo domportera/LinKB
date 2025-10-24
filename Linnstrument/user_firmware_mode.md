@@ -56,25 +56,18 @@ To enable X data, send MIDI CC message 10 with value 1 to Channels 1 to 8, corre
 Sending value 0 instead will disable X data for a row. The same applies to Y and Z data, using MIDI CC messages 11 and 12
 respectively.
 
-Z data is sent as Polyphonic Pressure message over channels 1 to 8, which again correspond to the rows. Similarly to the
-note on message, the Polyphonic Pressure notes 0 to 25, correspond to the columns. The values range from 0 to 127, with
-0 being a cell's lightest possible touch and 127 being the hardest one.
+All 3D Touch data is sent over channels 1 to 8, corresponding to the rows.
 
-X data is sent over channels 1 to 8, mapped to rows 1 to 8 on the LinnStrument. MIDI CC messages 0 to 25 correspond to
-the columns and contain the 14 bit MSB part. MIDI CC messages 32 to 57 can be used as the LSB counterparts of messages 0
-to 25 to receive more precise X data. The 14-bit range from the left edge to the right edge is 0 to 4265.
+### X
+MIDI CC messages 0 to 25 correspond to the columns and contain the 14 bit MSB part. MIDI CC messages 32 to 57 can be used as the LSB counterparts of messages 0 to 25 to receive more precise X data. The 14-bit range from the left edge to the right edge is 0 to 4265 in the case of X axis slide mode.
 
-Y data is sent over channels 1 to 8, corresponding to the rows. The columns correspond to MIDI CC messages 64 to 89. The
-values range from 0 to 127, from the bottom edge to the top edge of a cell. X-axis Slide Mode
+### Y
+MIDI CC messages 64 to 89 correspond to the columns.
+The values range from 0 to 127, from the bottom edge to the top edge of a cell.
 
-
-Data decimation
-===============
-
-Given the amount of data that LinnStrument sends out, it's possible to overload low powered or older receiving devices.
-Turning on MIDI data decimation will increase the time interval between data updates, by default this feature is
-disabled. Data decimation can be enabled by sending MIDI CC message 13 to LinnStrument, the value corresponds to the
-number of milliseconds between data updates.
+### Z
+Polyphonic Pressure notes 0 to 25, correspond to the columns. 
+The values range from 0 (lightest touch) to 127 (hardest touch)
 
 
 Slide Mode

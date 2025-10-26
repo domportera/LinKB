@@ -59,7 +59,7 @@ public static class Main
         const string deviceSearchTerm = "linnstrument";
         var (result, linnstrument) = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
         
-        if (result != DeviceHandler.DeviceOpenResult.Success)
+        if (result != DeviceOpenResult.Success)
         {
             Log.Info("Failed to open MIDI device: " + result);
             return (null, ExitCodes.FailedToOpenDevice);
@@ -79,13 +79,6 @@ public static class Main
 
       
         linnstrument.Initialize(25, 8);
-
-        if (!linnstrument.TryApplyUserFirmwareMode(true))
-        {
-            Log.Error("Failed to apply user firmware mode");
-            linnstrument.Dispose();
-            return (null, ExitCodes.FailedToApplyUserFirmwareMode);
-        }
         
         linnstrument.RequestAxes(LinnstrumentAxis.All);
 

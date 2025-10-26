@@ -105,13 +105,17 @@ public partial class MidiKeyboardGrid
 
     // todo - this should be an interface member that returns a desired result based on the midi
     // that way we're not hard-coded to linnstrument at this level
-    private void OnMidiReceived(object? sender, MidiEvent e)
+    private void OnMidiReceived(object? sender, ReadOnlyMemory<MidiEvent> e)
     {
+        var values = e.Span;
         // Handle MIDI event
         // enqueue to different thread to avoid blocking the receiver
         lock (_queueLock)
         {
-            _midiEventQueue.Enqueue(e);
+            for (int i = 0; i < values.Length; ++i)
+            {
+                _midiEventQueue.Enqueue(values[i]);
+            }
             _eventWaitHandle.Set();
         }
     }

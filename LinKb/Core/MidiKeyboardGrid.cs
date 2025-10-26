@@ -104,7 +104,7 @@ public partial class MidiKeyboardGrid
         // manage key state
         var keycode = _config.GetKey(x, y, Layer, out var foundLayer);
         
-        Log.Debug($"Key {(pressed ? "Pressed" : "Released")}: {KeyInfo.ToName[keycode]} at ({x},{y}) on {Layer} from {foundLayer}");
+        //Log.Debug($"Key {(pressed ? "Pressed" : "Released")}: {KeyInfo.ToName[keycode]} at ({x},{y}) on {Layer} from {foundLayer}");
         _keyHandler.HandleKeyPress(keycode, pressed);
 
         if (keycode >= KeyCode.ModifierKeyMin)

@@ -55,6 +55,7 @@ internal class WaylandEventProvider : IEventProvider
                 continue;
             }
 
+            // todo - detect duplicate events?
             foreach (var (evt, deviceId, isVirtual) in events)
             {
                 if (!KeycodeMap.ToKeyCode.TryGetValue((LinuxKC)evt.code, out var keyCodes))

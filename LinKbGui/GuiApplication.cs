@@ -17,24 +17,28 @@ internal class GuiApplication : IApplication
         _grid = grid;
     }
 
-    public async Task Run()
+    public void Run(SynchronizationContext mainContext)
     {
         if(_hooks is null || _grid is null)
             throw new InvalidOperationException("Application not initialized");
         
-        SilkWindowProvider.Initialize(!OperatingSystem.IsWindows());
-        IImguiWindowProvider provider = new SilkWindowProvider();
+        var windowRunner = new WindowRunner(new SilkWindowProvider(), mainContext);
         var drawer = new KeyboardConfigWindow(_grid, _hooks);
-
-        await provider.ShowAsync("LinKB GUI", drawer, new SimpleWindowOptions
+        var window = windowRunner.Show("LinKB GUI", drawer, new SimpleWindowOptions
         {
             Size = new Vector2(1600, 600),
             AlwaysOnTop = false,
             Vsync = true,
             SizeFlags = WindowSizeFlags.ResizeGui | WindowSizeFlags.ResizeWindow
         });
-        
+
+        while (!window.IsCompleted)
+        {
+            windowRunner.MainThreadUpdate();
+            windowRunner.Render();
+        }
+
         Log.Info("GUI application has exited");
-        await Task.Delay(1000);
+        
     }
 }

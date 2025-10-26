@@ -8,6 +8,7 @@ namespace Linn;
 public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
 {
     private int _width, _height;
+    private bool _inUserFirmwareMode;
     private const sbyte Uninitialized = sbyte.MinValue;
 
     public void Initialize(int width, int height)
@@ -24,12 +25,18 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
         }
     }
 
+    protected override async Task OnConnect()
+    {
+        if (!await TryApplyUserFirmwareMode(true))
+        {
+            await Console.Error.WriteAsync("Failed to apply user firmware mode");
+        }
+    }
+
     protected override async Task<(bool Success, string? Error)> OnClose()
     {
-        var success = TryApplyUserFirmwareMode(false);
-        if (success)
+        if (await TryApplyUserFirmwareMode(false))
         {
-            await Task.Delay(200); // dummy wait since we're not actually waiting for device response yet
             return (true, null);
         }
 
@@ -41,12 +48,14 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
     /// See documentation</a>
     /// and the implementation spec of <a href="https://en.wikipedia.org/wiki/NRPN">NRPN</a>
     /// </summary>
-    public bool TryApplyUserFirmwareMode(bool on)
+    private async Task<bool> TryApplyUserFirmwareMode(bool on)
     {
         // User Mode can be activated by sending LinnStrument the value 1 for
         // MIDI NRPN 245 on any MIDI channel, sending value 0 will turn it off
         CommitNrpn(245, on ? 1 : 0, 0);
         PushMidi();
+        await Task.Delay(500);
+        _inUserFirmwareMode = on;
         // todo - await acknowledgement
         return true;
     }

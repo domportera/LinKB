@@ -15,12 +15,12 @@ internal class ConsoleApplication : IApplication
         _grid = grid;
     }
 
-    public async Task Run()
+    public void Run(SynchronizationContext mainContext)
     {
         if (_hooks is null || _grid is null)
             throw new InvalidOperationException("Application not initialized");
 
-        await Task.Run(() =>
+        Task.Run(() =>
         {
             Log.Info("LinKB application started - press Ctrl+C to exit.");
             var exitEvent = new ManualResetEvent(false);
@@ -41,7 +41,7 @@ internal class ConsoleApplication : IApplication
             }
 
             exitEvent.WaitOne();
-        });
+        }).Wait();
     }
 
     /// <summary>

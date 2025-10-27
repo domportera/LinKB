@@ -1,15 +1,20 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Midi.Net;
+﻿using Midi.Net;
 using Midi.Net.MidiUtilityStructs;
 using Midi.Net.MidiUtilityStructs.Enums;
 
 namespace Linn;
 
-public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
+public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
 {
     private int _width, _height;
     private bool _inUserFirmwareMode;
     private const sbyte Uninitialized = sbyte.MinValue;
+    public required MidiDevice MidiDevice { get; init; }
+
+    public Linnstrument()
+    {
+        
+    }
 
     public void Initialize(int width, int height)
     {
@@ -25,7 +30,7 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
         }
     }
 
-    protected override async Task OnConnect()
+    public async Task OnConnect()
     {
         if (!await TryApplyUserFirmwareMode(true))
         {
@@ -33,7 +38,7 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
         }
     }
 
-    protected override async Task<(bool Success, string? Error)> OnClose()
+    public async Task<(bool Success, string? Error)> OnClose()
     {
         if (await TryApplyUserFirmwareMode(false))
         {
@@ -52,8 +57,8 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
     {
         // User Mode can be activated by sending LinnStrument the value 1 for
         // MIDI NRPN 245 on any MIDI channel, sending value 0 will turn it off
-        CommitNrpn(245, on ? 1 : 0, 0);
-        PushMidi();
+        MidiDevice.CommitNrpn(245, on ? 1 : 0, 0);
+        MidiDevice.PushMidi();
         await Task.Delay(500);
         _inUserFirmwareMode = on;
         // todo - await acknowledgement
@@ -63,7 +68,7 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
     public void CommitLED(int x, int y, LedColor color)
     {
         // Set the LED of a specific pad at (x, y) to the given color
-        CommitCC(channel: 0,
+        MidiDevice.CommitCC(channel: 0,
             new ControlChangeMessage((ControlChange)20, (byte)(x + 1)), // column
             new ControlChangeMessage((ControlChange)21, (byte)y), // row
             new ControlChangeMessage((ControlChange)22,
@@ -90,15 +95,15 @@ public partial class Linnstrument : MidiDevice, ILEDGrid, IGridController
                 var channelIsActive = (currentChannel & channel) != 0;
                 if (channelIsActive)
                 {
-                    CommitCC(c, new ControlChangeMessage(cc, value));
+                    MidiDevice.CommitCC(c, new ControlChangeMessage(cc, value));
                 }
             }
         }
         
-        PushMidi();
+        MidiDevice.PushMidi();
     }
 
-    void ILEDGrid.PushLEDs() => PushMidi();
+    void ILEDGrid.PushLEDs() => MidiDevice.PushMidi();
 
     // notes:
     // NRPN 245    Enabling/disabling User Firmware mode (0: disable, 1: enable)

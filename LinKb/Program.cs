@@ -57,32 +57,23 @@ public static class Main
     private static async Task<(MidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenLinnstrument()
     {
         const string deviceSearchTerm = "linnstrument";
-        var (result, linnstrument) = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
+        var result = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
         
-        if (result != DeviceOpenResult.Success)
+        if (!result.IsSuccess)
         {
             Log.Info("Failed to open MIDI device: " + result);
             return (null, ExitCodes.FailedToOpenDevice);
         }
 
-        if (linnstrument is null)
-        {
-            Log.Info("Failed to open MIDI device");
-        }
+        /Log.Info("Opened MIDI device " + linnstrument.Name);
 
-        if (linnstrument is null)
-        {
-            return (null, ExitCodes.FailedToOpenDevice);
-        }
 
-        Log.Info("Opened MIDI device " + linnstrument.Name);
-
-      
-        linnstrument.Initialize(25, 8);
+        //linnstrument.Initialize(25, 8);
         
-        linnstrument.RequestAxes(LinnstrumentAxis.All);
+        //linnstrument.RequestAxes(LinnstrumentAxis.All);
 
-        return (linnstrument: linnstrument, ExitCodes.Success);
+        //return (linnstrument: linnstrument, ExitCodes.Success);
+        return default;
     }
 }
 

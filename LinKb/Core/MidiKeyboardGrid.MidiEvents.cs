@@ -100,7 +100,7 @@ public partial class MidiKeyboardGrid
             Controller = controller
         });
 
-        _device.MidiReceived += OnMidiReceived;
+        _device.MidiDevice.MidiReceived += OnMidiReceived;
     }
 
     // todo - this should be an interface member that returns a desired result based on the midi

@@ -17,14 +17,14 @@ public partial class Linnstrument
         {
             case StatusType.NoteOn:
             {
-                var column = e.DataB1 - 1;
-                padStatusEvent = new PadStatusEvent(column, row, PadAxis.Velocity, e.DataB2);
+                var column = e.DataB1OrMsb - 1;
+                padStatusEvent = new PadStatusEvent(column, row, PadAxis.Velocity, e.DataB2OrLsb);
                 reason = null;
                 return true;
             }
             case StatusType.NoteOff:
             {
-                var column = e.DataB1 - 1;
+                var column = e.DataB1OrMsb - 1;
                 padStatusEvent = new PadStatusEvent(column, row, PadAxis.Velocity, 0);
                 reason = null;
                 return true;
@@ -33,8 +33,8 @@ public partial class Linnstrument
             {
                 // Z notes 0-25 = columns, 0-127 
                 //var polyphonicPressure = new PolyphonicPressureMessage(e.Data.B1, e.Data.B2);
-                var column = e.DataB1 - 1;
-                padStatusEvent = new PadStatusEvent(column, row, PadAxis.Z, e.DataB2);
+                var column = e.DataB1OrMsb - 1;
+                padStatusEvent = new PadStatusEvent(column, row, PadAxis.Z, e.DataB2OrLsb);
                 reason = null;
                 return true;
             }

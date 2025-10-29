@@ -56,7 +56,7 @@ public partial class MidiKeyboardGrid
     private readonly KeyHandler _keyHandler;
 
 
-    internal MidiKeyboardGrid(MidiDevice device, KeyboardGridConfig config, KeyHandler keyHandler)
+    internal MidiKeyboardGrid(IMidiDevice device, KeyboardGridConfig config, KeyHandler keyHandler)
     {
         _keyHandler = keyHandler;
         
@@ -188,7 +188,7 @@ public partial class MidiKeyboardGrid
 
     private void Dispose(bool disposing)
     {
-        _device.MidiReceived -= OnMidiReceived;
+        _device.MidiDevice.MidiReceived -= OnMidiReceived;
         _cancellationTokenSource.CancelAsync().Wait();
         _eventWaitHandle.Dispose();
         if (disposing)
@@ -207,5 +207,5 @@ public partial class MidiKeyboardGrid
     private Layer _layer;
     private readonly LEDHandler? _ledHandler;
     private readonly KeyboardGridConfig _config;
-    private readonly MidiDevice _device;
+    private readonly IMidiDevice _device;
 }

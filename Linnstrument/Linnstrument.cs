@@ -9,12 +9,8 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
     private int _width, _height;
     private bool _inUserFirmwareMode;
     private const sbyte Uninitialized = sbyte.MinValue;
-    public required MidiDevice MidiDevice { get; init; }
+    public MidiDevice MidiDevice { get; init; }
 
-    public Linnstrument()
-    {
-        
-    }
 
     public void Initialize(int width, int height)
     {
@@ -36,6 +32,9 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
         {
             await Console.Error.WriteAsync("Failed to apply user firmware mode");
         }
+        
+        Initialize(25, 8);
+        RequestAxes(LinnstrumentAxis.All);
     }
 
     public async Task<(bool Success, string? Error)> OnClose()

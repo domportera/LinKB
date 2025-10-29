@@ -46,17 +46,16 @@ public static class Main
         grid.Dispose();
 
         await KeySupport.End();
-        await TryCloseMidiDevice(gridDevice);
+        var closeResult = await gridDevice.CloseAsync();
+
+        if (!closeResult.Success)
+        {
+            Log.Error("Failure occurred closing MIDI device: " + closeResult.Error);
+        }
 
         Log.Info("Application stopped");
 
         return ExitCodes.Success;
-    }
-
-    private static async Task TryCloseMidiDevice(IMidiDevice device)
-    {
-        await device.OnClose();
-        await device.MidiDevice.CloseAsync();
     }
 
     private static async Task<(IMidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenMidiDevice()
@@ -70,14 +69,6 @@ public static class Main
             return (null, ExitCodes.FailedToOpenDevice);
         }
 
-        //Log.Info("Opened MIDI device " + linnstrument.Name);
-        await result.Device!.OnConnect();
-
-
-        
-        //linnstrument.RequestAxes(LinnstrumentAxis.All);
-
-        //return (linnstrument: linnstrument, ExitCodes.Success);
         return (result.Device, ExitCodes.Success);
     }
 }

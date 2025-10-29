@@ -26,23 +26,27 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
         }
     }
 
-    public async Task OnConnect()
+    public async Task<(bool Success, string? Error)> OnConnect()
     {
+        string? error = null;
         if (!await TryApplyUserFirmwareMode(true))
         {
-            await Console.Error.WriteAsync("Failed to apply user firmware mode");
+            error = "Failed to apply user firmware mode";
         }
         
         Initialize(25, 8);
         RequestAxes(LinnstrumentAxis.All);
+        return (true, error);
     }
 
-    public async Task<(bool Success, string? Error)> OnClose()
+    public async Task<(bool Success, string? Error)> CloseAsync()
     {
         if (await TryApplyUserFirmwareMode(false))
         {
             return (true, null);
         }
+        
+        await MidiDevice.CloseAsync();
 
         return (false, "Failed to unset user firmware mode");
     }

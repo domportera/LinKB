@@ -29,9 +29,9 @@ public static class Main
         var config = new KeyboardGridConfig(keys);
         var items = await KeySupport.Begin(config);
 
-        var (gridDevice, midiDeviceStatus) = await TryOpenLinnstrument();
+        var (gridDevice, midiDeviceStatus) = await TryOpenMidiDevice();
 
-        if (midiDeviceStatus != ExitCodes.Success)
+        if (midiDeviceStatus != ExitCodes.Success || gridDevice == null)
         {
             return midiDeviceStatus;
         }
@@ -46,15 +46,20 @@ public static class Main
         grid.Dispose();
 
         await KeySupport.End();
-        await gridDevice!.MidiDevice.CloseAsync();
-        
+        await TryCloseMidiDevice(gridDevice);
+
         Log.Info("Application stopped");
 
         return ExitCodes.Success;
     }
 
+    private static async Task TryCloseMidiDevice(IMidiDevice device)
+    {
+        await device.OnClose();
+        await device.MidiDevice.CloseAsync();
+    }
 
-    private static async Task<(IMidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenLinnstrument()
+    private static async Task<(IMidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenMidiDevice()
     {
         const string deviceSearchTerm = "linnstrument";
         var result = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);

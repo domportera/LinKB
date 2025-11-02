@@ -30,44 +30,20 @@ internal readonly struct ValueTaskReference(ValueTask task, object context)
 internal class KeyboardConfigWindow : IImguiDrawer
 {
     private readonly MidiKeyboardGrid _keyboardGrid;
-    private readonly IEventProvider _hooks;
-    private readonly Dictionary<KeyCode, bool> _pressedKeys = [];
-    private readonly Lock _keyLock = new();
     
     #if DEBUG
     private readonly Stopwatch _stopwatch = new();
     private long _lastFrameTicks = long.MaxValue;
     #endif
 
+    private readonly List<KeyCode> _pressedKeys;
+
     public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, IEventProvider hooks)
     {
         _keyboardGrid = keyboardGrid;
-        _hooks = hooks;
-        _hooks.InputEventReceived += OnKeyEvent;
+        _pressedKeys = new List<KeyCode>(keyboardGrid.KeyStates.Count);
     }
 
-    private void OnKeyEvent(KeyboardEventArgs e)
-    {
-        var keys = e.KeyCodes;
-        if (keys.Length == 0)
-        {
-            Log.Error("Received keyboard event with no keys?");
-            return;
-        }
-
-        var key = keys[0];
-        if (keys.Length > 1)
-        {
-            Log.Warn($"Received keyboard event that's mapped to multiple keys - only the first will be used: {key}");
-        }
-
-        Log.Debug($"Received key event: {key} ({e.IsDown}) ({e.IsSimulated})");
-
-        lock (_keyLock)
-        {
-            _pressedKeys[key] = e.IsDown;
-        }
-    }
 
     public void Init()
     {
@@ -95,14 +71,18 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         SameLineSeparator();
 
-        if (ImGui.Checkbox("Enable key events", ref _keyboardGrid.EnableKeyEvents))
+        _pressedKeys.Clear();
+        foreach ((KeyCode key, bool isPressed) in _keyboardGrid.KeyStates)
         {
-            // clear depressed keys when toggling
-            lock (_keyLock)
+            if (isPressed && key != KeyCode.Undefined && key < KeyCode.NonSystemKeyStart)
             {
-                _pressedKeys.Clear();
+                _pressedKeys.Add(key);
             }
         }
+        
+        KeyCode? pressedKey = _pressedKeys.Count == 1 ? _pressedKeys[0] : null;
+
+        ImGui.Checkbox("Enable key events", ref _keyboardGrid.EnableKeyEvents);
 
         var layer = _keyboardGrid.Layer;
 
@@ -110,18 +90,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
         DrawModKeys(layer);
 
         // get pressed keys
-        KeyCode? pressedKey;
-        KeyCode[] pressedKeys;
-        lock (_keyLock)
-        {
-            pressedKeys = _pressedKeys.Where(kv => kv.Value).Select(kv => kv.Key).ToArray();
-            pressedKey = pressedKeys.Length == 1 ? pressedKeys[0] : null;
-        }
 
         SameLineSeparator();
-        DrawPressedKeys(pressedKeys);
+        DrawPressedKeys(_pressedKeys);
         
-        #if DEBUG
+         #if DEBUG
         SameLineSeparator();
         ImGui.Text($"Frame time: {ms}ms");
         #endif
@@ -180,17 +153,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
             ImGui.EndTable();
         }
 
-        // ImGui.PopStyleVar();
-
-        if (consumedKey)
-        {
-            // if we consumed a key, clear the depressed keys?
-            lock (_keyLock)
-            {
-                _pressedKeys.Clear();
-            }
-        }
-
         #if DEBUG
         _lastFrameTicks = _stopwatch.ElapsedTicks;
         #endif
@@ -205,12 +167,12 @@ internal class KeyboardConfigWindow : IImguiDrawer
         }
     }
 
-    private static void DrawPressedKeys(KeyCode[] depressedKeys)
+    private static void DrawPressedKeys(IReadOnlyList<KeyCode> keysDown)
     {
-        ImGui.Text("Currently depressed keys:");
-        if (depressedKeys.Length > 0)
+        ImGui.Text("Currently pressed keys:");
+        if (keysDown.Count > 0)
         {
-            foreach (var key in depressedKeys)
+            foreach (var key in keysDown)
             {
                 var name = KeyInfo.ToName.GetValueOrDefault(key, "Unknown");
                 ImGui.SameLine();
@@ -349,7 +311,7 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
         if (ImGui.BeginPopupContextItem(selectionMenuLabel))
         {
-            if (pressedKey != null)
+            if (pressedKey is < KeyCode.MouseLeft)
             {
                 var key = pressedKey.Value == KeyCode.Escape ? KeyCode.Undefined : pressedKey.Value;
                 if (grid.TrySetKey(col, row, layer, key, out var reason))
@@ -459,7 +421,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
     public void OnClose()
     {
-        _hooks.InputEventReceived -= OnKeyEvent;
     }
 
     #region Unimplemented

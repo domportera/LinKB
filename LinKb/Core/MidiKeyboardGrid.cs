@@ -54,6 +54,7 @@ public partial class MidiKeyboardGrid
 
     internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
     private readonly KeyHandler _keyHandler;
+    public IReadOnlyDictionary<KeyCode, bool> KeyStates => _keyHandler.KeyStates;
 
 
     internal MidiKeyboardGrid(IMidiDevice device, KeyboardGridConfig config, KeyHandler keyHandler)

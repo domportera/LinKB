@@ -183,4 +183,6 @@ public enum KeyCode : ushort
     Mod1 = ushort.MaxValue - Layer.Layer2 + 1,
     
     ModifierKeyMin = Mod3, ModifierKeyMax = Mod1,
+    MouseMin = MouseLeft, MouseMax = MouseTask,
+    MaxValue = ModifierKeyMax
 }

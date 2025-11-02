@@ -1,19 +1,19 @@
 using System.Diagnostics;
 using InputHooks;
-using Microsoft.Extensions.Logging;
 
 namespace LinKb.Core;
 
 public readonly record struct KeyPress(KeyCode Key, bool Pressed);
 
-internal class KeyHandler: IDisposable
+internal sealed partial class KeyHandler: IDisposable
 {
     private readonly IEventSimulator _eventSimulator;
     private readonly IEventProvider _nativeInput;
     private readonly Stopwatch _stopwatch;
     public event EventHandler<KeyPress>? KeyEventTriggered;
 
-    public bool IsPressed(KeyCode keycode) => _pressCounts[(int)keycode] > 0;
+    public bool IsPressed(KeyCode keycode) => (int)keycode < _presses.Length && _presses[(int)keycode].Pressed;
+    public IReadOnlyDictionary<KeyCode, bool> KeyStates { get; }
 
     public KeyHandler(IEventProvider nativeInput, IEventSimulator eventSimulator)
     {
@@ -23,6 +23,13 @@ internal class KeyHandler: IDisposable
         _stopwatch.Start();
         
         _nativeInput.InputEventReceived += OnInputEventReceived;
+        
+        var keyCodes = new KeyCode[_presses.Length];
+        for (int i = 0; i < keyCodes.Length; i++)
+        {
+            keyCodes[i] = (KeyCode)i;
+        }
+        KeyStates = new BinaryKeyStates(_presses, keyCodes);
     }
 
     public void Dispose()
@@ -58,14 +65,14 @@ internal class KeyHandler: IDisposable
         var maxIdx = (int)KeyCode.NonSystemKeyStart;
         for (var i = 0; i < maxIdx; i++)
         {
-            var pressTime = _keyPressedTimesTicks[i];
+            var pressTime = _presses[i].PressTimeTicks;
             if (pressTime == NotPressedTime)
                 continue;
             var elapsed = nowTicks - pressTime;
             if (elapsed < autoRepeatDelayTicksSigned)
                 continue;
 
-            var repeatsSent = _repeatsSent[i];
+            ref var repeatsSent = ref _presses[i].RepeatsSent;
             bool shouldRepeat;
 
             unchecked
@@ -73,7 +80,7 @@ internal class KeyHandler: IDisposable
                 // if we have not repeated OR (firstRepeatTime) / repeatRate > repeatsSent
                 if (repeatsSent == 0 || ((ulong)elapsed - _autoRepeatDelayTicks) / _autoRepeatRateTicks > repeatsSent)
                 {
-                    ++_repeatsSent[i];
+                    ++repeatsSent;
                     shouldRepeat = true;
                 }
                 else
@@ -107,25 +114,16 @@ internal class KeyHandler: IDisposable
     }
 
 
-    public void HandleKeyPress(KeyCode keycode, bool pressed)
-    {
-        if (pressed)
-        {
-            PressKey(keycode);
-        }
-        else
-        {
-            ReleaseKey(keycode);
-        }
-    }
+    public bool HandleKeyPress(KeyCode keycode, bool pressed) => pressed ? PressKey(keycode) : ReleaseKey(keycode);
 
     private bool PressKey(KeyCode keycode)
     {
         int keycodeInt = (int)keycode;
-        ref var pressCount = ref _pressCounts[keycodeInt];
-        if (++pressCount == 1)
+        ref var press = ref _presses[keycodeInt];
+        ++_totalKeyPressCount;
+        if (++press.PressCount == 1)
         {
-            _keyPressedTimesTicks[keycodeInt] = _stopwatch.ElapsedTicks;
+            press.PressTimeTicks = _stopwatch.ElapsedTicks;
             if (keycode != KeyCode.Undefined && keycode < KeyCode.NonSystemKeyStart)
             {
                 _eventSimulator.SimulateKeyDown(keycode);
@@ -143,9 +141,9 @@ internal class KeyHandler: IDisposable
         }
 
         #if DEBUG
-        if (pressCount > 1)
+        if (press.PressCount > 1)
         {
-            Log.Debug($"Key {keycode} press count: {pressCount}");
+            Log.Debug($"Key {keycode} press count: {press.PressCount}");
         }
         #endif
 
@@ -160,12 +158,12 @@ internal class KeyHandler: IDisposable
     private bool ReleaseKey(KeyCode keycode)
     {
         var keycodeInt = (int)keycode;
-        ref var pressCount = ref _pressCounts[keycodeInt];
+        ref var press = ref _presses[keycodeInt];
         --_totalKeyPressCount;
-        if (--pressCount == 0)
+        if (--press.PressCount == 0)
         {
-            _keyPressedTimesTicks[keycodeInt] = NotPressedTime;
-            _repeatsSent[keycodeInt] = 0;
+            press.PressTimeTicks = NotPressedTime;
+            press.RepeatsSent = 0;
             if (keycode != KeyCode.Undefined && keycode < KeyCode.NonSystemKeyStart)
             {
                 _eventSimulator.SimulateKeyUp(keycode);
@@ -183,11 +181,12 @@ internal class KeyHandler: IDisposable
             return true;
         }
 
-        if (pressCount < 0)
+        if (press.PressCount < 0)
         {
             Log.Error($"Key {keycode} was released more times than it was pressed");
+            press.PressCount = 0;
         }
-
+        
         return false;
     }
 
@@ -200,8 +199,14 @@ internal class KeyHandler: IDisposable
     private ulong _autoRepeatRateTicks = (ulong)(DefaultAutoRepeatRateMs * TicksPerMillisecond);
 
     private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000d;
-    private readonly ulong[] _repeatsSent = new ulong[ushort.MaxValue + 1];
-    private readonly long[] _keyPressedTimesTicks = new long[ushort.MaxValue + 1];
-    private readonly int[] _pressCounts = new int[ushort.MaxValue + 1];
+    private readonly KeyPressInfo[] _presses = new KeyPressInfo[ushort.MaxValue + 1];
     private const long NotPressedTime = 0;
+
+    private struct KeyPressInfo
+    {
+        public long PressTimeTicks;
+        public int PressCount;
+        public bool Pressed => PressCount > 0;
+        public ulong RepeatsSent;
+    }
 }

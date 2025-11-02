@@ -13,10 +13,8 @@ Note: Linux users need to be a part of the "input" group on their machines.
 
 ### Known issues
 - Currently, the device usage seems to be exclusive to this application, therefore it cannot simultaneously be used in another application (e.g. a DAW)
-- holding down two pads that refer to the same key can lead to an early release when both are held and only one is released (simple to fix)
-- mod keys are repeated when they probably shouldnt be 
 - linnstrument's center-third LED color is inconsistent in from that of the edges (possibly specific to my device)
-- on linux, windowing throws an exception on my machine
+- on linux, occasional HID exceptions (that are caught, but disconcerting)
 - reassigning pads via key press sometimes makes the pad look "pressed" until touched again
 - Currently not thrilled with my serialization scheme (layout files) - they're somewhat human readable, but could be better structured, more pleasant to edit by hand, and more robust to adapt to future changes
 
@@ -29,3 +27,4 @@ Note: Linux users need to be a part of the "input" group on their machines.
 - linnstrument as a trackpad
 
     
+

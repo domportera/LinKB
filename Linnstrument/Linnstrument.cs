@@ -50,7 +50,9 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
 
         return (false, "Failed to unset user firmware mode");
     }
-    
+
+    public event EventHandler? ConnectionStateChanged;
+
     /// <summary>
     /// <a href="https://github.com/rogerlinndesign/linnstrument-firmware/blob/master/user_firmware_mode.txt">
     /// See documentation</a>

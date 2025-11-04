@@ -41,15 +41,6 @@ public partial class MidiKeyboardGrid
         _ledHandler?.UpdateAndPushAll(_config.Width, _config.Height);
     }
 
-    private void UpdateLED(int col, int row)
-    {
-        if (_ledHandler == null)
-            return;
-
-        _ledHandler.UpdateButtonState(col, row);
-        _ledHandler.PushLEDs();
-    }
-
     #endregion Public
 
     internal Span3D<KeyCode> KeymapRW => _config.KeymapRW;
@@ -87,6 +78,15 @@ public partial class MidiKeyboardGrid
     internal void Dispose()
     {
         Dispose(true);
+    }
+
+    private void UpdateLED(int col, int row)
+    {
+        if (_ledHandler == null)
+            return;
+
+        _ledHandler.UpdateButtonState(col, row);
+        _ledHandler.PushLEDs();
     }
 
     private void OnPadPress(int x, int y, bool pressed)

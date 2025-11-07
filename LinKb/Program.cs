@@ -50,7 +50,7 @@ public static class Main
 
         if (!closeResult.Success)
         {
-            Log.Error("Failure occurred closing MIDI device: " + closeResult.Error);
+            Log.Error("Failure occurred closing MIDI device: " + closeResult.Message);
         }
 
         Log.Info("Application stopped");
@@ -63,13 +63,13 @@ public static class Main
         const string deviceSearchTerm = "linnstrument";
         var result = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
         
-        if (!result.IsSuccess)
+        if (!result.Success)
         {
             Log.Info("Failed to open MIDI device: " + result);
             return (null, ExitCodes.FailedToOpenDevice);
         }
 
-        return (result.Device, ExitCodes.Success);
+        return (result.Value, ExitCodes.Success);
     }
 }
 

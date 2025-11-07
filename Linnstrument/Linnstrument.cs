@@ -1,4 +1,5 @@
-﻿using Midi.Net;
+﻿using Commons.Music.Midi;
+using Midi.Net;
 using Midi.Net.MidiUtilityStructs;
 using Midi.Net.MidiUtilityStructs.Enums;
 
@@ -6,16 +7,36 @@ namespace Linn;
 
 public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
 {
-    private int _width, _height;
+    public int Width { get; private set; }
+
+    public int Height { get; private set; }
+    public event EventHandler? ConnectionStateChanged;
+
     private bool _inUserFirmwareMode;
     private const sbyte Uninitialized = sbyte.MinValue;
     public MidiDevice MidiDevice { get; init; }
 
-
-    public void Initialize(int width, int height)
+    public async Task<Result> OnConnect()
     {
-        _width = width;
-        _height = height;
+        var error = "";
+        try
+        {
+            ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            error += $"Error invoking ConnectionStateChanged event: {ex.Message}";
+        }
+
+        if (!await TryApplyUserFirmwareMode(true))
+        {
+            error += "Failed to apply user firmware mode";
+        }
+        
+        // todo: load Linnstrument-specific config to get the width, height, axes, etc
+        const int width = 25, height = 8;
+        Width = width;
+        Height = height;
         _xAxisValuesMsb = new sbyte[width, height];
         for (int x = 0; x < width; x++)
         {
@@ -24,34 +45,25 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
                 _xAxisValuesMsb[x, y] = Uninitialized;
             }
         }
-    }
-
-    public async Task<(bool Success, string? Error)> OnConnect()
-    {
-        string? error = null;
-        if (!await TryApplyUserFirmwareMode(true))
-        {
-            error = "Failed to apply user firmware mode";
-        }
         
-        Initialize(25, 8);
         RequestAxes(LinnstrumentAxis.All);
-        return (true, error);
+        return new(true, error);
     }
 
-    public async Task<(bool Success, string? Error)> CloseAsync()
+    public async Task<Result> CloseAsync()
     {
-        if (await TryApplyUserFirmwareMode(false))
+        var stoppedUserFirmwareMode = await TryApplyUserFirmwareMode(false);
+        await (MidiDevice as IMidiPort).CloseAsync();
+        
+        ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
+        if(stoppedUserFirmwareMode)
         {
-            return (true, null);
+            return new Result(true, null);
         }
         
-        await MidiDevice.CloseAsync();
-
-        return (false, "Failed to unset user firmware mode");
+        return new Result(false, "Failed to unset user firmware mode");
     }
 
-    public event EventHandler? ConnectionStateChanged;
 
     /// <summary>
     /// <a href="https://github.com/rogerlinndesign/linnstrument-firmware/blob/master/user_firmware_mode.txt">
@@ -83,7 +95,7 @@ public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
         );
     }
 
-    public void RequestAxes(LinnstrumentAxis linnstrumentAxes, int row = -1, Channel channel = Channel.Channel1To8)
+    private void RequestAxes(LinnstrumentAxis linnstrumentAxes, int row = -1, Channel channel = Channel.Channel1To8)
     {
         if (row != -1)
             throw new NotImplementedException();

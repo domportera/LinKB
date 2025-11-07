@@ -70,7 +70,7 @@ public partial class Linnstrument
                             return false;
                         }
 
-                        var perColumn = maxReceivedValue / _width;
+                        var perColumn = maxReceivedValue / Width;
                         ref var msb = ref _xAxisValuesMsb[column, row];
                         if (msb == Uninitialized)
                         {
@@ -116,15 +116,15 @@ public partial class Linnstrument
 
         bool ValidatePosition(int rowY, int columnX, [NotNullWhen(false)] out string? reason)
         {
-            if (rowY >= _height)
+            if (rowY >= Height)
             {
-                reason = $"Row {rowY} is out of bounds of height {_height}";
+                reason = $"Row {rowY} is out of bounds of height {Height}";
                 return false;
             }
 
-            if (columnX >= _width)
+            if (columnX >= Width)
             {
-                reason = $"Column {columnX} is out of bounds of width {_width}";
+                reason = $"Column {columnX} is out of bounds of width {Width}";
                 return false;
             }
 

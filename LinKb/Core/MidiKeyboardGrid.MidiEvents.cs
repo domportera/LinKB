@@ -233,7 +233,7 @@ public partial class MidiKeyboardGrid
                 .Append("Parse time: ").Append(tParse * toMs)
                 .Append("ms (").Append(parseRatio.ToString("P2")).AppendLine(")")
                 .Append("Average ms per MIDI event: ").Append(averageMsPerMidiEvent.ToString("F4"))
-                .Append(" (Rate: ").Append((totalParseCount / (double)tParse).ToString("F2")).AppendLine("/ms)")
+                .Append(" (Rate: Total - ").Append((totalParseCount / (double)tParse).ToString("F2")).AppendLine("/ms, per event - ").Append((1d /averageMsPerMidiEvent).ToString("F2")).AppendLine("/ms)")
                 .Append("Max time for a single midi event batch: ").Append(maxMsPerBatch.ToString("F4"))
                 .AppendLine("ms")
                 .Append("Max parse ratio: ").AppendLine(maxParseRatio.ToString("P2"))

@@ -151,8 +151,13 @@ public static class UserInfo
         {
             return GetNewDefaultKeyConfig();
         }
+
+        if (configFiles.Count > 1)
+        {
+            // tod: actually refer to an externally - saved "default" setting
+        }
         
-        var config = await TryLoadConfig(DefaultConfigFileName);
+        var config = await TryLoadConfig(configFiles[0].FilePath);
         if (config.Success)
         {
             return config.Value;

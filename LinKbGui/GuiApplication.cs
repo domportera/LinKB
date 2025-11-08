@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using ImGuiWindows;
 using InputHooks;
 using LinKb.Application;
+using LinKb.Configuration;
 using LinKb.Core;
 using SilkWindows;
 
@@ -11,19 +13,31 @@ internal class GuiApplication : IApplication
 {
     private IEventProvider? _hooks;
     private MidiKeyboardGrid? _grid;
-    public void Initialize(IEventProvider hooks, MidiKeyboardGrid grid)
+    private KeyboardGridConfig? _config;
+    
+    [MemberNotNullWhen(true, nameof(_hooks), nameof(_grid), nameof(_config))]
+    private bool Initialized { get; set; }
+    
+    
+    public void Initialize(IEventProvider hooks, MidiKeyboardGrid grid, KeyboardGridConfig config)
     {
+        if(Initialized)
+            throw new InvalidOperationException("Application already initialized");
+        
         _hooks = hooks;
         _grid = grid;
+        _config = config;
+        Initialized = true;
     }
 
     public void Run(SynchronizationContext mainContext)
     {
-        if(_hooks is null || _grid is null)
+        if(!Initialized)
             throw new InvalidOperationException("Application not initialized");
         
         var windowRunner = new WindowRunner(new SilkWindowProvider(), mainContext);
-        var drawer = new KeyboardConfigWindow(_grid, _hooks);
+        var profileGui = new ProfileGui(_config, windowRunner);
+        var drawer = new KeyboardConfigWindow(_grid, profileGui);
         var window = windowRunner.Show("LinKB GUI", drawer, new SimpleWindowOptions
         {
             Size = new Vector2(1600, 600),

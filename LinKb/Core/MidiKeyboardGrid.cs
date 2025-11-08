@@ -35,7 +35,7 @@ public partial class MidiKeyboardGrid
         return false;
     }
 
-    public void ApplyKeymap(ReadOnlySpan3D<KeyCode> loaded)
+    internal void ApplyKeymap(ReadOnlySpan3D<KeyCode> loaded)
     {
         _config.SetKeymap(0, loaded);
         _ledHandler?.UpdateAndPushAll(_config.Width, _config.Height);
@@ -69,6 +69,7 @@ public partial class MidiKeyboardGrid
         {
             _ledHandler = new LEDHandler(ledGrid, GetColor);
             _ledHandler.UpdateAndPushAll(_config.Width, _config.Height);
+            config.KeymapChanged += () => _ledHandler.UpdateAndPushAll(config.Width, config.Height);
         }
 
         BeginReceiveThread();

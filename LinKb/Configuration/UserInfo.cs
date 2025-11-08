@@ -1,4 +1,10 @@
-﻿namespace LinKb.Configuration;
+﻿using System.Diagnostics.Contracts;
+using System.Numerics;
+using InputHooks;
+using LinKb.Core;
+using Midi.Net;
+
+namespace LinKb.Configuration;
 
 public static class UserInfo
 {
@@ -10,9 +16,172 @@ public static class UserInfo
         }
     }
 
-    public static readonly string ConfigDirectory = Path.Combine(
+    private const string AppName = "LinKb";
+    private static readonly string ConfigDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "LinnstrumentKeyboard");
+        AppName);
+    private static readonly string GridLayoutDirectory = Path.Combine(ConfigDirectory, "InputLayouts");
+    private static readonly string ReadOnlyTemplateDirectory = Path.Combine(ConfigDirectory, "ReadOnly");
 
-    public static readonly string DefaultConfigFile = Path.Combine(ConfigDirectory, "Preferences.txt");
+    // todo - file paths versioning such that files can be migrated to new versions easily
+    private enum DirectoryType
+    {
+        GridLayout,
+        Template,
+    }
+    private readonly record struct DirectorySchemeVersion(int Version);
+
+    public struct ConfigFileInfo
+    {
+        public required string Name { get; init; }
+        public required DateTime CreationTime { get; init; }
+        public required DateTime LastAccessTime { get; init; }
+        public required DateTime LastWriteTime { get; init; }
+
+        private string? _filePath;
+        public string FilePath => _filePath ??= Path.Combine(ConfigDirectory, Name, Name + ".txt");
+    }
+    
+    private static ConfigFileInfo[]? _configFiles;
+
+    public static IList<ConfigFileInfo> GetConfigFiles(bool forceRefresh = false)
+    {
+        if (_configFiles is null || forceRefresh)
+        {
+            var directoryInfo = new DirectoryInfo(ConfigDirectory);
+            var subdirectories = directoryInfo.GetDirectories();
+            // one config file per subdirectory
+            _configFiles = subdirectories.Select(x => new ConfigFileInfo
+            {
+                Name = x.Name,
+                CreationTime = x.CreationTime,
+                LastAccessTime = x.LastAccessTime,
+                LastWriteTime = x.LastWriteTime
+            }).ToArray();
+            
+        }
+        
+        return _configFiles;
+    }
+
+    public static async Task<Result<KeyboardGridConfig>> TryLoadConfig(string configFilePath)
+    {
+        if (!File.Exists(configFilePath))
+        {
+            return new Result<KeyboardGridConfig>(null, false, $"Config file not found: {configFilePath}");
+        }
+
+        var text = await File.ReadAllTextAsync(configFilePath);
+        if (!LayoutSerializer.TryDeserialize(text, out var keymap, out var reason))
+        {
+            return new Result<KeyboardGridConfig>(null, false, $"Could not read preferences file: {configFilePath}:\n{reason}");
+        }
+        
+        string name = Path.GetFileNameWithoutExtension(configFilePath);
+        (int xLength, int yLength, int zLength) = (keymap.GetLength(0), keymap.GetLength(1), keymap.GetLength(2));
+        
+        var span = new ReadOnlySpan3D<KeyCode>(keymap);
+        if (xLength != span.XLength || yLength != span.YLength || zLength != span.ZLength)
+        {
+            // save backup of current file
+            var fileName = Path.GetFileNameWithoutExtension(configFilePath);
+            fileName += $"_deviceMismatchBackup_{xLength}x{yLength}x{zLength}.txt";
+            await File.WriteAllTextAsync(fileName, text);
+
+            // resize the keymap to our desired width - a simple truncate //todo later: compress blank columns or rows to re-fit to smaller device
+            keymap = new KeyCode[DeviceDimensions.X, DeviceDimensions.Y, DeviceDimensions.Z];
+            Vector<int> newKeyDimensions = new(
+            [
+                Math.Min(xLength, DeviceDimensions.X),
+                Math.Min(yLength, DeviceDimensions.Y),
+                Math.Min(zLength, DeviceDimensions.Z)
+            ]);
+
+            var newKeymap = new KeyCode[newKeyDimensions.X(), newKeyDimensions.Y(), newKeyDimensions.Z()];
+
+            for (int x = 0; x < newKeyDimensions.X(); x++)
+            {
+                for (int y = 0; y < newKeyDimensions.Y(); y++)
+                {
+                    for (int z = 0; z < newKeyDimensions.Z(); z++)
+                    {
+                        newKeymap[x, y, z] = keymap[x, y, z];
+                    }
+                }
+            }
+
+            if (!Save(configFilePath, newKeymap))
+            {
+                Log.Error("Could not save resized keymap");
+            }
+
+            return new Result<KeyboardGridConfig>(new KeyboardGridConfig(name, newKeymap), true, $"Resized keymap from {xLength}x{yLength}x{zLength} to {DeviceDimensions.X}x{DeviceDimensions.Y}x{DeviceDimensions.Z}");
+        }
+
+        return new Result<KeyboardGridConfig>(new KeyboardGridConfig(name, keymap), true, null);
+    }
+    
+    
+    [Pure]
+    private static Result Save(string path, ReadOnlySpan3D<KeyCode> config)
+    {
+        var layoutStr = LayoutSerializer.Serialize(config);
+        // todo - async, move logs
+        try
+        {
+            File.WriteAllText(path, layoutStr);
+            return new Result(true, null);
+        }
+        catch (Exception ex)
+        {
+            return new Result(false, $"Could not write preferences to file: {ex}");
+        }
+    }
+
+    // todo - save this regularly 
+    private const string DefaultConfigFileName = "Default";
+    private static string UserDefinedDefaultConfigFileName = "Default";
+    private static string GetConfigFilePath(string configName) => Path.Combine(ConfigDirectory, configName, configName + ".txt");
+    private static string GetConfigFilePath(KeyboardGridConfig config) => GetConfigFilePath(config.Name);
+
+    public static async Task<KeyboardGridConfig> LoadOrCreateDefaultKeyConfig()
+    {
+        var configFiles = GetConfigFiles(true);
+        if (!configFiles.Any())
+        {
+            return GetNewDefaultKeyConfig();
+        }
+        
+        var config = await TryLoadConfig(DefaultConfigFileName);
+        if (config.Success)
+        {
+            return config.Value;
+        }
+        
+        // todo - load from a set of default templates/layouts
+        return GetNewDefaultKeyConfig();
+    }
+
+    private static KeyboardGridConfig GetNewDefaultKeyConfig()
+    {
+        return new KeyboardGridConfig(DefaultConfigFileName,
+            new KeyCode[DeviceDimensions.X, DeviceDimensions.Y, DeviceDimensions.Z]);
+    }
+
+    // todo - encode preferred device dimensions into the config files
+    private static readonly Dimension3D DeviceDimensions = new(25, 8, LayerExtensions.Count);
+    private readonly record struct Dimension3D(int X, int Y, int Z);
+
+    public static Result Save(KeyboardGridConfig currentConfig)
+    {
+        var path = GetConfigFilePath(currentConfig);
+        return Save(path, currentConfig.Keymap);
+    }
+
+    public static Result SaveAs(string name, KeyboardGridConfig currentConfig)
+    {
+        // todo- check for naming conflicts / overwrites
+        var path = GetConfigFilePath(name);
+        return Save(path, currentConfig.Keymap);
+    }
 }

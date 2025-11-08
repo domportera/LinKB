@@ -38,10 +38,11 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
     private readonly List<KeyCode> _pressedKeys;
 
-    public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, IEventProvider hooks)
+    public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, ProfileGui profileGui)
     {
         _keyboardGrid = keyboardGrid;
         _pressedKeys = new List<KeyCode>(keyboardGrid.KeyStates.Count);
+        MainMenuBarAction = profileGui.DrawFileMenu;
     }
 
 
@@ -62,14 +63,9 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var kbHeight = _keyboardGrid.Height;
         var consumedKey = false;
 
-        // render as a table
-        ReadOnlySpan3D<KeyCode> loaded = default;
-        if (DrawFileMenu(_keyboardGrid.Keymap, out loaded))
-        {
-            _keyboardGrid.ApplyKeymap(loaded);
-        }
+        //_profileGui.DrawFileMenu();
 
-        SameLineSeparator();
+        ImGui.Separator();
 
         _pressedKeys.Clear();
         foreach ((KeyCode key, bool isPressed) in _keyboardGrid.KeyStates)
@@ -214,28 +210,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var clicked = ImGui.Checkbox(KeyInfo.ToName[key], ref mod1Pressed);
         state = mod1Pressed;
         return clicked;
-    }
-
-    private static bool DrawFileMenu(ReadOnlySpan3D<KeyCode> config, out ReadOnlySpan3D<KeyCode> loadedConfig)
-    {
-        if (ImGui.Button("Save"))
-        {
-            _ = LayoutSerializer.Save(UserInfo.DefaultConfigFile, config);
-        }
-
-        ImGui.SameLine();
-        ImGui.Spacing();
-        ImGui.SameLine();
-
-        if (ImGui.Button("Load"))
-        {
-            loadedConfig = LayoutSerializer
-                .LoadOrCreateKeymap(UserInfo.DefaultConfigFile, config.XLength, config.YLength, config.ZLength).Result;
-            return true;
-        }
-
-        loadedConfig = default;
-        return false;
     }
 
     private static unsafe void DrawCell(MidiKeyboardGrid grid, Layer layer, Vector2 size, int col, int row,
@@ -434,6 +408,8 @@ internal class KeyboardConfigWindow : IImguiDrawer
     public void OnWindowFocusChanged(bool changedTo)
     {
     }
+
+    public Action? MainMenuBarAction { get; }
 
     #endregion Unimplemented
 }

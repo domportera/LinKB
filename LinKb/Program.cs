@@ -6,6 +6,8 @@ using Midi.Net;
 
 namespace LinKb;
 
+internal record DaemonParams(KeyHandler KeyHandler, MidiKeyboardGrid Grid);
+
 /// <summary>
 /// Converts Linnstrument messages into keyboard events, using
 /// <a href="https://github.com/rogerlinndesign/linnstrument-firmware/blob/master/user_firmware_mode.txt">this
@@ -25,10 +27,6 @@ public static class Main
 {
     public static async Task<ExitCodes> Run(string[] args, IApplication application)
     {
-        var keys = await LayoutSerializer.LoadOrCreateKeymap(UserInfo.DefaultConfigFile, 25, 8, 8);
-        var config = new KeyboardGridConfig(keys);
-        var items = await KeySupport.Begin(config);
-
         var (gridDevice, midiDeviceStatus) = await TryOpenMidiDevice();
 
         if (midiDeviceStatus != ExitCodes.Success || gridDevice == null)
@@ -36,14 +34,11 @@ public static class Main
             return midiDeviceStatus;
         }
 
-        var keyHandler = new KeyHandler(items.InputEventProvider, items.Simulator);
-        keyHandler.ApplyAutoRepeatSettings(items.AutoRepeatDelay, items.AutoRepeatRate);
+        var daemonParams = await TryPrepareDaemonInputs(application, gridDevice);
+        await Daemon.Run(daemonParams, application);
         
-        var grid = new MidiKeyboardGrid(gridDevice!, config, keyHandler);
-
-        application.Initialize(items.InputEventProvider, grid);
-        await Daemon.Run(grid, keyHandler, application);
-        grid.Dispose();
+        daemonParams.Grid.Dispose();
+        daemonParams.KeyHandler.Dispose();
 
         await KeySupport.End();
         var closeResult = await gridDevice.CloseAsync();
@@ -56,6 +51,18 @@ public static class Main
         Log.Info("Application stopped");
 
         return ExitCodes.Success;
+    }
+
+    private static async Task<DaemonParams> TryPrepareDaemonInputs(IApplication application, IMidiDevice gridDevice)
+    {
+        var config = await UserInfo.LoadOrCreateDefaultKeyConfig();
+        var items = await KeySupport.Begin(config);
+        var keyHandler = new KeyHandler(items.InputEventProvider, items.Simulator);
+        keyHandler.ApplyAutoRepeatSettings(items.AutoRepeatDelay, items.AutoRepeatRate);
+        
+        var grid = new MidiKeyboardGrid(gridDevice, config, keyHandler);
+        application.Initialize(items.InputEventProvider, grid, config);
+        return new DaemonParams(keyHandler, grid);
     }
 
     private static async Task<(IMidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenMidiDevice()

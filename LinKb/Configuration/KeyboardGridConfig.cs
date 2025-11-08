@@ -7,15 +7,17 @@ namespace LinKb.Configuration;
 [Serializable]
 public class KeyboardGridConfig
 {
+    public string Name;
+    
+    [NonSerialized]
+    public readonly Lock SyncLock = new();
+    
     // todo: serialize colors
     public readonly KeyColors Colors = new();
 
-    public KeyboardGridConfig(int xCount, int yCount) : this(new KeyCode[xCount, yCount, LayerExtensions.Count])
+    internal KeyboardGridConfig(string name, KeyCode[,,] keymap)
     {
-    }
-
-    internal KeyboardGridConfig(KeyCode[,,] keymap)
-    {
+        Name = name;
         KeymapArray = keymap;
         var depth = keymap.GetLength(2);
         if (depth < LayerExtensions.Count)
@@ -40,6 +42,8 @@ public class KeyboardGridConfig
     public int Width => Keymap.XLength;
     public int Height => Keymap.YLength;
     public int LayerCount => Keymap.ZLength;
+    
+    public event Action? KeymapChanged;
 
     public KeyCode GetKey(int colX, int rowY, Layer modLevel, out Layer foundLayer)
     {
@@ -96,6 +100,20 @@ public class KeyboardGridConfig
         else
         {
             throw new ArgumentOutOfRangeException(nameof(i), "Only one keymap supported currently");
+        }
+    }
+
+    public void ReplaceContentsWith(KeyboardGridConfig other)
+    {
+        KeymapArray = other.KeymapArray;
+        Name = other.Name;
+        try
+        {
+            KeymapChanged?.Invoke();
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Error while invoking KeymapChanged event {e}", this);
         }
     }
 }

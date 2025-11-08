@@ -8,10 +8,10 @@ internal static class Daemon
 {
     internal static readonly AutoResetEvent InputTrigger = new(false);
 
-    public static async Task Run(MidiKeyboardGrid grid, KeyHandler keyHandler, IApplication app)
+    public static async Task Run(DaemonParams daemonParams, IApplication app)
     {
         var cts = new CancellationTokenSource();
-        var inputTask = Task.Run(() => ExecuteInputs(grid, keyHandler, cts.Token));
+        var inputTask = Task.Run(() => ExecuteInputs(daemonParams.Grid, daemonParams.KeyHandler, cts.Token));
         
         var mainContext = SynchronizationContext.Current ?? new SynchronizationContext();
         try

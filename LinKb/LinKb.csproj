@@ -15,6 +15,7 @@
         <ProjectReference Include="../Midi/Midi.csproj"/>
         <ProjectReference Include="../Linnstrument/Linnstrument.csproj"/>
         <ProjectReference Include="../InputHooks/InputHooks.csproj"/>
+        <ProjectReference Include="..\ImGuiWindows.Silk.NET\ImGuiWindows.csproj" />
         <ProjectReference Include="..\SharphookInput\SharphookInput.csproj" />
         <ProjectReference Include="..\WaylandInput\WaylandInput.csproj" />
     </ItemGroup>

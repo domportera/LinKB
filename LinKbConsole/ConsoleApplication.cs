@@ -1,5 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using InputHooks;
 using LinKb.Application;
+using LinKb.Configuration;
 using LinKb.Core;
 
 namespace KeyboardGUI.GUI;
@@ -8,18 +10,25 @@ internal class ConsoleApplication : IApplication
 {
     private IEventProvider? _hooks;
     private MidiKeyboardGrid? _grid;
+    private KeyboardGridConfig? _config;
+    
+    [MemberNotNullWhen(true, nameof(_hooks), nameof(_grid), nameof(_config))]
+    private bool Initialized { get; set; }
 
-    public void Initialize(IEventProvider hooks, MidiKeyboardGrid grid)
+
+    public void Initialize(IEventProvider hooks, MidiKeyboardGrid grid, KeyboardGridConfig config)
     {
-        _hooks = hooks;
         _grid = grid;
+        _hooks = hooks;
+        _config = config;
+        Initialized = true;
     }
 
     public void Run(SynchronizationContext mainContext)
     {
-        if (_hooks is null || _grid is null)
+        if(!Initialized)
             throw new InvalidOperationException("Application not initialized");
-
+        
         Task.Run(() =>
         {
             Log.Info("LinKB application started - press Ctrl+C to exit.");

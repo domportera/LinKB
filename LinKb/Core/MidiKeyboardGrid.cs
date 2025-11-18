@@ -55,7 +55,7 @@ public partial class MidiKeyboardGrid
         // todo - get device connection/reconnection delegates that return midi device instead 
         // of providing it via the constructor, that way we can maintain the same grid object throughout disconnects?
         // or, create a way to create new grids throughout the lifetime of the application
-        if (device is not IGridController)
+        if (device is not IMidiGrid)
         {
             throw new ArgumentException("Midi device must implement IGridController");
         }
@@ -65,14 +65,26 @@ public partial class MidiKeyboardGrid
 
         _config = config;
         _device = device;
-        if (device is ILEDGrid ledGrid)
+
+        device.ConnectionStateChanged += OnConnectionChanged;
+        if (_device is ILEDGrid ledGrid)
         {
             _ledHandler = new LEDHandler(ledGrid, GetColor);
-            _ledHandler.UpdateAndPushAll(_config.Width, _config.Height);
             config.KeymapChanged += () => _ledHandler.UpdateAndPushAll(config.Width, config.Height);
         }
 
         BeginReceiveThread();
+    }
+
+    private ValueTask OnConnectionChanged(object? sender, bool e)
+    {
+        if (!e)
+        {
+            return ValueTask.CompletedTask;
+        }
+        
+        _ledHandler?.UpdateAndPushAll(_config.Width, _config.Height);
+        return ValueTask.CompletedTask;
     }
 
 

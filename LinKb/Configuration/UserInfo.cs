@@ -68,20 +68,20 @@ public static class UserInfo
     {
         if (!File.Exists(configFilePath))
         {
-            return new Result<KeyboardGridConfig>(null, false, $"Config file not found: {configFilePath}");
+            return ResultFactory.Fail<KeyboardGridConfig>($"Config file not found: {configFilePath}");
         }
 
         var text = await File.ReadAllTextAsync(configFilePath);
         if (!LayoutSerializer.TryDeserialize(text, out var keymap, out var reason))
         {
-            return new Result<KeyboardGridConfig>(null, false, $"Could not read preferences file: {configFilePath}:\n{reason}");
+            return ResultFactory.Fail<KeyboardGridConfig>($"Could not read preferences file: {configFilePath}:\n{reason}");
         }
         
         string name = Path.GetFileNameWithoutExtension(configFilePath);
         (int xLength, int yLength, int zLength) = (keymap.GetLength(0), keymap.GetLength(1), keymap.GetLength(2));
         
-        var span = new ReadOnlySpan3D<KeyCode>(keymap);
-        if (xLength != span.XLength || yLength != span.YLength || zLength != span.ZLength)
+        var deviceSize = DeviceDimensions;
+        if (xLength != deviceSize.X || yLength != deviceSize.Y || zLength != deviceSize.Z)
         {
             // save backup of current file
             var fileName = Path.GetFileNameWithoutExtension(configFilePath);
@@ -89,12 +89,12 @@ public static class UserInfo
             await File.WriteAllTextAsync(fileName, text);
 
             // resize the keymap to our desired width - a simple truncate //todo later: compress blank columns or rows to re-fit to smaller device
-            keymap = new KeyCode[DeviceDimensions.X, DeviceDimensions.Y, DeviceDimensions.Z];
+            keymap = new KeyCode[deviceSize.X, deviceSize.Y, deviceSize.Z];
             Vector<int> newKeyDimensions = new(
             [
-                Math.Min(xLength, DeviceDimensions.X),
-                Math.Min(yLength, DeviceDimensions.Y),
-                Math.Min(zLength, DeviceDimensions.Z)
+                Math.Min(xLength, deviceSize.X),
+                Math.Min(yLength, deviceSize.Y),
+                Math.Min(zLength, deviceSize.Z)
             ]);
 
             var newKeymap = new KeyCode[newKeyDimensions.X(), newKeyDimensions.Y(), newKeyDimensions.Z()];
@@ -115,10 +115,10 @@ public static class UserInfo
                 Log.Error("Could not save resized keymap");
             }
 
-            return new Result<KeyboardGridConfig>(new KeyboardGridConfig(name, newKeymap), true, $"Resized keymap from {xLength}x{yLength}x{zLength} to {DeviceDimensions.X}x{DeviceDimensions.Y}x{DeviceDimensions.Z}");
+            return ResultFactory.Success(new KeyboardGridConfig(name, newKeymap), $"Resized keymap from {xLength}x{yLength}x{zLength} to {deviceSize.X}x{deviceSize.Y}x{deviceSize.Z}");
         }
 
-        return new Result<KeyboardGridConfig>(new KeyboardGridConfig(name, keymap), true, null);
+        return ResultFactory.Success(new KeyboardGridConfig(name, keymap));
     }
     
     

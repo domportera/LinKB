@@ -27,12 +27,7 @@ public static class Main
 {
     public static async Task<ExitCodes> Run(string[] args, IApplication application)
     {
-        var (gridDevice, midiDeviceStatus) = await TryOpenMidiDevice();
-
-        if (midiDeviceStatus != ExitCodes.Success || gridDevice == null)
-        {
-            return midiDeviceStatus;
-        }
+        var gridDevice = CreateMidiDevice();
 
         var daemonParams = await TryPrepareDaemonInputs(application, gridDevice);
         await Daemon.Run(daemonParams, application);
@@ -62,21 +57,14 @@ public static class Main
         
         var grid = new MidiKeyboardGrid(gridDevice, config, keyHandler);
         application.Initialize(items.InputEventProvider, grid, config);
+        gridDevice.BeginConnect();
         return new DaemonParams(keyHandler, grid);
     }
 
-    private static async Task<(IMidiDevice? linnstrument, ExitCodes failedToOpenDevice)> TryOpenMidiDevice()
+    private static IMidiDevice CreateMidiDevice()
     {
         const string deviceSearchTerm = "linnstrument";
-        var result = await DeviceHandler.TryOpen<Linnstrument>(deviceSearchTerm);
-        
-        if (!result.Success)
-        {
-            Log.Info("Failed to open MIDI device: " + result);
-            return (null, ExitCodes.FailedToOpenDevice);
-        }
-
-        return (result.Value, ExitCodes.Success);
+        return DeviceHandler.Create<Linnstrument>(deviceSearchTerm);
     }
 }
 

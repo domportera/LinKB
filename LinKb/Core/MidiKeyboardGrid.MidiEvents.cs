@@ -78,9 +78,9 @@ public partial class MidiKeyboardGrid
 
     private void BeginReceiveThread()
     {
-        if (_device is not IGridController controller)
+        if (_device is not IMidiGrid controller)
         {
-            throw new InvalidOperationException($"Device does not implement {nameof(IGridController)}.");
+            throw new InvalidOperationException($"Device does not implement {nameof(IMidiGrid)}.");
         }
 
         var parseMidiThread = new Thread(ParseMidi)
@@ -93,7 +93,6 @@ public partial class MidiKeyboardGrid
         {
             CancellationToken = _cancellationTokenSource.Token,
             EventWaitHandle = _eventWaitHandle,
-            // ReSharper disable once InconsistentlySynchronizedField
             MidiEventQueue = _midiEventQueue,
             PadStatusEvents = _padStatusEvents,
             QueueLock = _queueLock,
@@ -252,7 +251,7 @@ public partial class MidiKeyboardGrid
         public required Queue<MidiEvent> MidiEventQueue { get; init; }
         public required ConcurrentQueue<PadStatusEvent> PadStatusEvents { get; init; }
         public required Lock QueueLock { get; init; }
-        public required IGridController Controller { get; init; }
+        public required IMidiGrid Controller { get; init; }
     }
 
     private readonly CancellationTokenSource _cancellationTokenSource = new();

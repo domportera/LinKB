@@ -1,69 +1,59 @@
-﻿using Commons.Music.Midi;
-using Midi.Net;
+﻿using Midi.Net;
 using Midi.Net.MidiUtilityStructs;
 using Midi.Net.MidiUtilityStructs.Enums;
 
 namespace Linn;
 
-public partial class Linnstrument : IMidiDevice, ILEDGrid, IGridController
+public partial class Linnstrument : IMidiDevice, ILEDGrid, IMidiGrid
 {
     public int Width { get; private set; }
 
     public int Height { get; private set; }
-    public event EventHandler? ConnectionStateChanged;
 
     private bool _inUserFirmwareMode;
     private const sbyte Uninitialized = sbyte.MinValue;
-    public MidiDevice MidiDevice { get; init; }
+    private readonly MidiDevice _midiDevice = null!;
+    public MidiDevice MidiDevice
+    {
+        get=> _midiDevice;
+        init
+        {
+            _midiDevice = value;
+            _midiDevice.ConnectionStateChanged += OnConnect;
+        }
+    }
 
-    public async Task<Result> OnConnect()
+    private async ValueTask OnConnect(object? sender, bool isConnected)
     {
         var error = "";
-        try
-        {
-            ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            error += $"Error invoking ConnectionStateChanged event: {ex.Message}";
-        }
-
-        if (!await TryApplyUserFirmwareMode(true))
+        Console.WriteLine($"Linnstrument device connected: {isConnected}");
+        
+        // wait for a bit before trying to apply user firmware mode
+        //await Task.Delay(500);
+        
+        if (!await TryApplyUserFirmwareMode(isConnected))
         {
             error += "Failed to apply user firmware mode";
         }
         
         // todo: load Linnstrument-specific config to get the width, height, axes, etc
-        const int width = 25, height = 8;
-        Width = width;
-        Height = height;
-        _xAxisValuesMsb = new sbyte[width, height];
-        for (int x = 0; x < width; x++)
+        if (isConnected)
         {
-            for (int y = 0; y < height; y++)
+            const int width = 25, height = 8;
+            Width = width;
+            Height = height;
+            _xAxisValuesMsb = new sbyte[width, height];
+            for (int x = 0; x < width; x++)
             {
-                _xAxisValuesMsb[x, y] = Uninitialized;
+                for (int y = 0; y < height; y++)
+                {
+                    _xAxisValuesMsb[x, y] = Uninitialized;
+                }
             }
-        }
-        
-        RequestAxes(LinnstrumentAxis.All);
-        return new(true, error);
-    }
 
-    public async Task<Result> CloseAsync()
-    {
-        var stoppedUserFirmwareMode = await TryApplyUserFirmwareMode(false);
-        await (MidiDevice as IMidiPort).CloseAsync();
-        
-        ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
-        if(stoppedUserFirmwareMode)
-        {
-            return new Result(true, null);
+            RequestAxes(LinnstrumentAxis.All);
         }
-        
-        return new Result(false, "Failed to unset user firmware mode");
     }
-
 
     /// <summary>
     /// <a href="https://github.com/rogerlinndesign/linnstrument-firmware/blob/master/user_firmware_mode.txt">

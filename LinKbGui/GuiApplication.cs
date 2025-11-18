@@ -48,8 +48,15 @@ internal class GuiApplication : IApplication
 
         while (!window.IsCompleted)
         {
-            windowRunner.MainThreadUpdate();
-            windowRunner.Render();
+            try
+            {
+                windowRunner.MainThreadUpdate();
+                windowRunner.Render();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+            }
         }
 
         Log.Info("GUI application has exited");

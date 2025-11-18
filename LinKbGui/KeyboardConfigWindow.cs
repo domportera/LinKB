@@ -37,12 +37,14 @@ internal class KeyboardConfigWindow : IImguiDrawer
     #endif
 
     private readonly List<KeyCode> _pressedKeys;
+    private readonly ProfileGui _profileGui;
 
     public KeyboardConfigWindow(MidiKeyboardGrid keyboardGrid, ProfileGui profileGui)
     {
         _keyboardGrid = keyboardGrid;
         _pressedKeys = new List<KeyCode>(keyboardGrid.KeyStates.Count);
         MainMenuBarAction = profileGui.DrawFileMenu;
+        _profileGui = profileGui;
     }
 
 
@@ -63,9 +65,6 @@ internal class KeyboardConfigWindow : IImguiDrawer
         var kbHeight = _keyboardGrid.Height;
         var consumedKey = false;
 
-        //_profileGui.DrawFileMenu();
-
-        ImGui.Separator();
 
         _pressedKeys.Clear();
         foreach ((KeyCode key, bool isPressed) in _keyboardGrid.KeyStates)
@@ -148,6 +147,8 @@ internal class KeyboardConfigWindow : IImguiDrawer
 
             ImGui.EndTable();
         }
+        
+        _profileGui.Draw();
 
         #if DEBUG
         _lastFrameTicks = _stopwatch.ElapsedTicks;
@@ -338,11 +339,10 @@ internal class KeyboardConfigWindow : IImguiDrawer
             return;
         
         var cellPadding = ImGui.GetStyle().CellPadding;
-        var margin = ImGui.GetStyle().ItemInnerSpacing;
         var totalCellPadding = cellPadding * 2;
         // draw a point on normalized xy pos inside cell,
         // with z determining the size of the point
-        var cursorPos = ImGui.GetCursorPos() + cellPadding with {Y = cellPadding.Y + margin.Y };
+        var cursorPos = ImGui.GetCursorPos() - cellPadding;
         var actualSize = new Vector2(
             x: ImGui.GetContentRegionAvail().X + totalCellPadding.X, 
             y: size.Y + totalCellPadding.Y);

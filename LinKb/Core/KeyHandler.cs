@@ -99,7 +99,7 @@ internal sealed partial class KeyHandler: IDisposable
 
     internal void ApplyAutoRepeatSettings(int? repeatDelay, int? repeatRate)
     {
-        if (repeatDelay is > 0)
+        if (repeatDelay is > 1)
         {
             _autoRepeatDelayTicks = (ulong)(repeatDelay.Value * TicksPerMillisecond);
             Log.Info("Auto repeat delay set to " + repeatDelay);
